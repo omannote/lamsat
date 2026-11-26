@@ -112,7 +112,22 @@ class _State extends State<ShiftGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_shift != null) return PosScreen(shift: _shift!);
+    if (_shift != null) {
+      return PosScreen(
+        key: ValueKey(_shift!.sessionId),
+        shift: _shift!,
+        onShiftClosed: () {
+          // بعد الإقفال: العودة لشاشة فتح الوردية بمعرّف عملية جديد
+          setState(() {
+            _shift = null;
+            _openSession = null;
+            _openOpId = const Uuid().v4();
+            _cash.text = '0';
+          });
+          _load();
+        },
+      );
+    }
     final otherOpen = _openSession != null && _openSession!['mine'] != true;
     return Scaffold(
       backgroundColor: Brand.ink,

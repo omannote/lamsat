@@ -96,6 +96,9 @@ String errorMessage(String code) {
     'VEHICLE_NOT_FOUND': 'المركبة غير موجودة.',
     'OPERATION_MISMATCH': 'معرّف العملية مستخدم لطلب مختلف. ابدأ فاتورة جديدة.',
     'INVALID_AMOUNT': 'المبلغ غير صالح.',
+    'CLOSE_NOTE_REQUIRED': 'يوجد فرق في الصندوق. اكتب سبب الفرق.',
+    'ACCOUNT_MAPPING_MISSING': 'حسابات الصندوق غير مهيأة. راجع المحاسب.',
+    'OPERATION_CANCELLED': 'أُلغيت هذه المحاولة. أعد الدفع من السلة.',
     'NOT_FOUND': 'السجل غير موجود أو لا تملك صلاحية عرضه.',
     'SERVER_ERROR': 'خطأ في الخادم. لم يُحفظ شيء. أعد المحاولة أو راجع مدير النظام.',
   };

@@ -72,3 +72,6 @@ tfoot td { border-bottom: 0; background: #fafbfb; color: var(--muted); }
 .audit li { display: flex; justify-content: space-between; }
 @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } .side { position: static; height: auto; } .grid2 { grid-template-columns: 1fr; } }
 .wrap { white-space: normal; min-width: 9rem; }
+.badge.open { background: #fff4e5; color: #9a5b00; }
+.num.neg { color: var(--bad); }
+.note { font-size: .75rem; font-weight: 400; color: var(--muted); direction: rtl; white-space: normal; max-width: 12rem; }

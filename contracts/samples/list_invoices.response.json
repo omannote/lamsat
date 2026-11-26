@@ -1,6 +1,6 @@
 [
   {
-    "id": "f2a9f6e5-840b-4cc1-9ef2-23d67dae8fd9",
+    "id": "d0f3cfeb-d7a3-4326-960b-77d49a10a2c1",
     "plate": "12345 أ ب",
     "status": "approved",
     "branch_id": "c0000000-0000-4000-8000-000000000002",
@@ -8,7 +8,7 @@
     "card_baisa": 50000,
     "cash_baisa": 66000,
     "invoice_no": "TYR-26-000001",
-    "approved_at": "2026-11-27T00:26:01.188861+04:00",
+    "approved_at": "2026-11-27T01:36:54.723159+04:00",
     "branch_code": "TYR",
     "total_baisa": 116000,
     "cashier_name": "كاشير الإطارات (تجريبي)",

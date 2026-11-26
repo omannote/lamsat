@@ -27,6 +27,14 @@ export interface Invoice {
   payments: { method: 'cash' | 'card'; amount_baisa: number; tendered_baisa: number | null; card_reference: string | null }[];
 }
 
+export interface CashSessionRow {
+  session_id: string; status: 'open' | 'closed'; branch_id: string; branch_code: string; device_name: string;
+  opened_at: string; closed_at: string | null; opened_by_name: string; closed_by_name: string | null; business_date: string;
+  opening_cash_baisa: number; cash_sales_baisa: number; cash_other_baisa: number; expected_cash_baisa: number;
+  card_baisa: number; invoice_count: number; total_sales_baisa: number;
+  counted_cash_baisa: number | null; difference_baisa: number | null; close_note: string | null;
+}
+
 export interface Summary {
   invoice_count: number; net_sales_baisa: number; tax_baisa: number; total_baisa: number; discount_baisa: number;
   cash_baisa: number; card_baisa: number; gross_profit_baisa: number | null;

@@ -3,7 +3,7 @@
   "result": {
     "status": "approved",
     "invoice": {
-      "id": "f2a9f6e5-840b-4cc1-9ef2-23d67dae8fd9",
+      "id": "d0f3cfeb-d7a3-4326-960b-77d49a10a2c1",
       "note": null,
       "lines": [
         {
@@ -76,7 +76,7 @@
       "tax_baisa": 5523,
       "invoice_no": "TYR-26-000001",
       "paid_baisa": 116000,
-      "approved_at": "2026-11-27T00:26:01.188861+04:00",
+      "approved_at": "2026-11-27T01:36:54.723159+04:00",
       "print_count": 0,
       "tax_rate_bp": 500,
       "total_baisa": 116000,
@@ -93,5 +93,5 @@
     }
   },
   "op_type": "sale",
-  "created_at": "2026-11-27T00:26:01.188861+04:00"
+  "created_at": "2026-11-27T01:36:54.723159+04:00"
 }

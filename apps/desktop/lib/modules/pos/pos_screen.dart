@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/api.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../cash/close_shift_dialog.dart';
 import '../cash/shift_gate.dart';
 import '../customers/customer_lookup_dialog.dart';
 import '../invoices/invoice_history_dialog.dart';
@@ -21,7 +22,8 @@ import 'pending_operation.dart';
 /// F1 فاتورة جديدة · F2 بحث · F3 عميل · F4 كمية · F8 دفع · F9 اعتماد (داخل نافذة الدفع) · Esc رجوع.
 class PosScreen extends StatefulWidget {
   final ShiftContext shift;
-  const PosScreen({super.key, required this.shift});
+  final VoidCallback onShiftClosed;
+  const PosScreen({super.key, required this.shift, required this.onShiftClosed});
   @override
   State<PosScreen> createState() => _State();
 }
@@ -184,6 +186,21 @@ class _State extends State<PosScreen> {
     if (c != null && mounted) setState(() => _cart.customer = c);
   }
 
+  /// F10: مراجعة إقفال الوردية حسب الصلاحية. السلة يجب أن تكون فارغة.
+  Future<void> _closeShift() async {
+    if (_dialogOpen) return;
+    if (!shift.permissions.contains('cash.close')) {
+      await _open<void>(const _MessageDialog('إقفال الوردية', 'لا تملك صلاحية إقفال الوردية.'));
+      return;
+    }
+    if (!_cart.isEmpty) {
+      await _open<void>(const _MessageDialog('إقفال الوردية', 'في السلة بنود لم تُعتمد. أكمل الفاتورة أو ابدأ فاتورة جديدة (F1) ثم أقفل الوردية.'));
+      return;
+    }
+    final closed = await _open<bool>(CloseShiftDialog(sessionId: shift.sessionId), dismissible: false);
+    if (closed == true) widget.onShiftClosed();
+  }
+
   void _notYet(String what) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -293,7 +310,7 @@ class _State extends State<PosScreen> {
         const SingleActivator(LogicalKeyboardKey.f6): () => _notYet('المسودات وأوامر العمل'),
         const SingleActivator(LogicalKeyboardKey.f7): () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
         const SingleActivator(LogicalKeyboardKey.f8): _pay,
-        const SingleActivator(LogicalKeyboardKey.f10): () => _notYet('إقفال الوردية'),
+        const SingleActivator(LogicalKeyboardKey.f10): _closeShift,
         const SingleActivator(LogicalKeyboardKey.f12): () => _open<void>(const PrinterSettingsDialog()),
       },
       child: Scaffold(
@@ -493,7 +510,7 @@ class _State extends State<PosScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         child: const Text(
-          'F1 فاتورة جديدة   F2 بحث   F3 عميل/مركبة   F4 كمية   ↑↓ تنقّل   Delete حذف سطر   F7 السجل   F8 الدفع   F12 الطابعة   Esc رجوع',
+          'F1 فاتورة جديدة   F2 بحث   F3 عميل/مركبة   F4 كمية   ↑↓ تنقّل   Delete حذف سطر   F7 السجل   F8 الدفع   F10 إقفال الوردية   F12 الطابعة   Esc رجوع',
           style: TextStyle(color: Color(0xFFCFD9DD), fontSize: 14),
         ),
       );

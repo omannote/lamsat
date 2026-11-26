@@ -1,0 +1,19 @@
+{
+  "status": "open",
+  "branch_id": "c0000000-0000-4000-8000-000000000002",
+  "closed_at": null,
+  "opened_at": "2026-11-27T01:36:54.713197+04:00",
+  "card_baisa": 50000,
+  "close_note": null,
+  "session_id": "1dc50ac6-25a0-4685-ab7c-aa78e3eac9e1",
+  "business_date": "2026-11-27",
+  "invoice_count": 1,
+  "opened_by_name": "كاشير الإطارات (تجريبي)",
+  "cash_other_baisa": 0,
+  "cash_sales_baisa": 66000,
+  "difference_baisa": null,
+  "total_sales_baisa": 116000,
+  "counted_cash_baisa": null,
+  "opening_cash_baisa": 20000,
+  "expected_cash_baisa": 86000
+}

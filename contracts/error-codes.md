@@ -24,6 +24,8 @@
 | `CUSTOMER_NOT_FOUND` / `VEHICLE_NOT_FOUND` | خارج المنشأة أو غير موجود | |
 | `OPERATION_MISMATCH` | معرّف العملية مستخدم لطلب مختلف أو مستخدم آخر | |
 | `OPERATION_CANCELLED` | المعرّف حُجز كملغى عبر `cancel_operation` | |
+| `CLOSE_NOTE_REQUIRED` | إقفال بفرق صندوق بلا سبب مكتوب | `difference_baisa` |
+| `ACCOUNT_MAPPING_MISSING` | حساب نظامي غير مهيأ في دليل الحسابات | |
 | `JOURNAL_UNBALANCED` | قيد غير متوازن (يُفحص عند نهاية المعاملة) | |
 | `IMMUTABLE_RECORD` | محاولة تعديل أو حذف سجل مالي | اسم الجدول |
 

@@ -7,6 +7,7 @@
 | `pos.sell` اعتماد البيع | ✓ | ✓ | | ✓ |
 | `pos.discount` خصم ضمن `max_discount_bp` | ✓ | ✓ | | |
 | `cash.open` / `cash.close` / `cash.movement` | ✓ | ✓ | | ✓ |
+| `cash.close.any` إقفال وردية موظف آخر | ✓ | ✓ | | |
 | `invoice.view` / `invoice.reprint` | ✓ | ✓ | عرض فقط | ✓ |
 | `invoice.adjust` تصحيح | ✓ | ✓ | ✓ | |
 | `invoice.void` / `invoice.refund` / `draft.delete` | ✓ | ✓ | | |
