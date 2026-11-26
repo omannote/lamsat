@@ -1,0 +1,19 @@
+[
+  {
+    "product_id": "e0000000-0000-4000-8000-000000000001",
+    "sku": "TR-2055516-BS",
+    "kind": "item",
+    "category": "tire",
+    "name_ar": "إطار بريجستون 205/55R16",
+    "name_en": "Bridgestone 205/55R16",
+    "brand": "Bridgestone",
+    "unit": "حبة",
+    "whole_units_only": true,
+    "track_stock": true,
+    "taxable": true,
+    "tire_size": "205/55R16",
+    "unit_price_baisa": 28000,
+    "stock_qty": 12,
+    "exact_barcode": false
+  }
+]

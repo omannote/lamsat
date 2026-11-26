@@ -1,0 +1,35 @@
+{
+  "p_operation_id": "4b26aa9a-fd2c-42de-9ee1-686a1bf1e787",
+  "p_payload": {
+    "cash_session_id": "4b5caac1-c673-47f9-9352-bf83fddf55d2",
+    "customer_id": "f0000000-0000-4000-8000-000000000001",
+    "vehicle_id": "f1000000-0000-4000-8000-000000000001",
+    "lines": [
+      {
+        "product_id": "e0000000-0000-4000-8000-000000000001",
+        "qty": 4,
+        "unit_price_baisa": 28000,
+        "discount_baisa": 0
+      },
+      {
+        "product_id": "e0000000-0000-4000-8000-000000000011",
+        "qty": 4,
+        "unit_price_baisa": 1000,
+        "discount_baisa": 0
+      }
+    ],
+    "payments": [
+      {
+        "method": "cash",
+        "amount_baisa": 66000
+      },
+      {
+        "method": "card",
+        "amount_baisa": 50000,
+        "card_reference": "AUTH-123456"
+      }
+    ],
+    "cash_tendered_baisa": 70000,
+    "expected_total_baisa": 116000
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+*.local.md
+apps/desktop/build/
+apps/desktop/.dart_tool/
+apps/desktop/lamsat.config.json
+apps/desktop/windows/flutter/ephemeral/

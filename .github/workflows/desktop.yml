@@ -1,0 +1,24 @@
+# يحلّل ويختبر ويبني تطبيق الكاشير على Windows. يُشغَّل يدويًا أو عند تغيير apps/desktop.
+name: desktop
+on:
+  workflow_dispatch:
+  push:
+    paths: ['apps/desktop/**', '.github/workflows/desktop.yml']
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults: { run: { working-directory: apps/desktop } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter create --platforms=windows --project-name lamsat_pos --org om.lamsat .
+      - name: Remove the template test that flutter create may add
+        shell: bash
+        run: rm -f test/widget_test.dart
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with: { name: lamsat-pos-windows, path: apps/desktop/build/windows/x64/runner/Release }

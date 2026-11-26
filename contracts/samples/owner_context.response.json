@@ -1,0 +1,88 @@
+{
+  "user": {
+    "id": "a0000000-0000-4000-8000-000000000001",
+    "full_name": "المالك (تجريبي)"
+  },
+  "branches": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000001",
+      "code": "TNT",
+      "roles": [
+        "owner"
+      ],
+      "name_ar": "لمسات — العازل والإكسسوارات",
+      "name_en": "Lamsat Tint & Accessories",
+      "permissions": [
+        "accounting.manage",
+        "accounting.view",
+        "audit.view",
+        "cash.close",
+        "cash.movement",
+        "cash.open",
+        "catalog.manage",
+        "catalog.view",
+        "draft.delete",
+        "inventory.cost.view",
+        "inventory.manage",
+        "inventory.view",
+        "invoice.adjust",
+        "invoice.refund",
+        "invoice.reprint",
+        "invoice.view",
+        "invoice.void",
+        "notifications.manage",
+        "pos.discount",
+        "pos.sell",
+        "reports.export",
+        "reports.view",
+        "settings.manage",
+        "users.manage"
+      ],
+      "tax_enabled": true,
+      "tax_rate_bp": 500,
+      "max_discount_bp": 10000,
+      "organization_id": "b0000000-0000-4000-8000-000000000001",
+      "prices_include_tax": true
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000002",
+      "code": "TYR",
+      "roles": [
+        "owner"
+      ],
+      "name_ar": "لمسات — الإطارات",
+      "name_en": "Lamsat Tires",
+      "permissions": [
+        "accounting.manage",
+        "accounting.view",
+        "audit.view",
+        "cash.close",
+        "cash.movement",
+        "cash.open",
+        "catalog.manage",
+        "catalog.view",
+        "draft.delete",
+        "inventory.cost.view",
+        "inventory.manage",
+        "inventory.view",
+        "invoice.adjust",
+        "invoice.refund",
+        "invoice.reprint",
+        "invoice.view",
+        "invoice.void",
+        "notifications.manage",
+        "pos.discount",
+        "pos.sell",
+        "reports.export",
+        "reports.view",
+        "settings.manage",
+        "users.manage"
+      ],
+      "tax_enabled": true,
+      "tax_rate_bp": 500,
+      "max_discount_bp": 10000,
+      "organization_id": "b0000000-0000-4000-8000-000000000001",
+      "prices_include_tax": true
+    }
+  ]
+}

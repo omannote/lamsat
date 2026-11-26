@@ -1,0 +1,14 @@
+{
+  "status": "price_changed",
+  "changes": [
+    {
+      "sku": "TR-2055516-BS",
+      "line_no": 1,
+      "name_ar": "إطار بريجستون 205/55R16",
+      "product_id": "e0000000-0000-4000-8000-000000000001",
+      "current_baisa": 29000,
+      "expected_baisa": 28000
+    }
+  ],
+  "server_total_baisa": 120000
+}

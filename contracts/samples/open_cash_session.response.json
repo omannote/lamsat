@@ -1,0 +1,13 @@
+{
+  "status": "opened",
+  "session": {
+    "id": "4b5caac1-c673-47f9-9352-bf83fddf55d2",
+    "branch_id": "c0000000-0000-4000-8000-000000000002",
+    "device_id": "d0000000-0000-4000-8000-000000000002",
+    "opened_at": "2026-11-27T00:26:01.177729+04:00",
+    "business_date": "2026-11-27",
+    "business_day_id": "c6640983-3538-450c-9f17-9a9f037474de",
+    "opening_cash_baisa": 20000
+  },
+  "replayed": false
+}

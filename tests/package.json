@@ -1,0 +1,7 @@
+{
+  "name": "lamsat-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test --test-concurrency=1 \"scenarios/*.test.mjs\"" },
+  "devDependencies": { "embedded-postgres": "^18.0.0-beta.1", "pg": "^8.13.0" }
+}

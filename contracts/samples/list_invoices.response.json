@@ -1,0 +1,21 @@
+[
+  {
+    "id": "f2a9f6e5-840b-4cc1-9ef2-23d67dae8fd9",
+    "plate": "12345 أ ب",
+    "status": "approved",
+    "branch_id": "c0000000-0000-4000-8000-000000000002",
+    "tax_baisa": 5523,
+    "card_baisa": 50000,
+    "cash_baisa": 66000,
+    "invoice_no": "TYR-26-000001",
+    "approved_at": "2026-11-27T00:26:01.188861+04:00",
+    "branch_code": "TYR",
+    "total_baisa": 116000,
+    "cashier_name": "كاشير الإطارات (تجريبي)",
+    "business_date": "2026-11-27",
+    "customer_name": "عميل تجريبي",
+    "branch_name_ar": "لمسات — الإطارات",
+    "customer_phone": "96890000000",
+    "discount_baisa": 0
+  }
+]

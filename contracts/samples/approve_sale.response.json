@@ -1,0 +1,93 @@
+{
+  "status": "approved",
+  "invoice": {
+    "id": "f2a9f6e5-840b-4cc1-9ef2-23d67dae8fd9",
+    "note": null,
+    "lines": [
+      {
+        "qty": 4,
+        "sku": "TR-2055516-BS",
+        "kind": "item",
+        "unit": "حبة",
+        "line_no": 1,
+        "net_baisa": 106667,
+        "tax_baisa": 5333,
+        "product_id": "e0000000-0000-4000-8000-000000000001",
+        "gross_baisa": 112000,
+        "total_baisa": 112000,
+        "description_ar": "إطار بريجستون 205/55R16",
+        "discount_baisa": 0,
+        "unit_price_baisa": 28000
+      },
+      {
+        "qty": 4,
+        "sku": "SV-INSTALL",
+        "kind": "service",
+        "unit": "خدمة",
+        "line_no": 2,
+        "net_baisa": 3810,
+        "tax_baisa": 190,
+        "product_id": "e0000000-0000-4000-8000-000000000011",
+        "gross_baisa": 4000,
+        "total_baisa": 4000,
+        "description_ar": "تركيب إطار",
+        "discount_baisa": 0,
+        "unit_price_baisa": 1000
+      }
+    ],
+    "branch": {
+      "code": "TYR",
+      "phone": "90000002",
+      "name_ar": "لمسات — الإطارات",
+      "address_ar": "عنوان تجريبي",
+      "receipt_footer_ar": "شكرًا لزيارتكم",
+      "receipt_header_ar": "لمسات للإطارات"
+    },
+    "status": "approved",
+    "vehicle": {
+      "id": "f1000000-0000-4000-8000-000000000001",
+      "make": "Toyota",
+      "model": "Camry",
+      "plate": "12345 أ ب"
+    },
+    "customer": {
+      "id": "f0000000-0000-4000-8000-000000000001",
+      "name": "عميل تجريبي",
+      "phone": "96890000000"
+    },
+    "payments": [
+      {
+        "method": "card",
+        "amount_baisa": 50000,
+        "card_reference": "AUTH-123456",
+        "tendered_baisa": null
+      },
+      {
+        "method": "cash",
+        "amount_baisa": 66000,
+        "card_reference": null,
+        "tendered_baisa": 70000
+      }
+    ],
+    "branch_id": "c0000000-0000-4000-8000-000000000002",
+    "net_baisa": 110477,
+    "tax_baisa": 5523,
+    "invoice_no": "TYR-26-000001",
+    "paid_baisa": 116000,
+    "approved_at": "2026-11-27T00:26:01.188861+04:00",
+    "print_count": 0,
+    "tax_rate_bp": 500,
+    "total_baisa": 116000,
+    "cashier_name": "كاشير الإطارات (تجريبي)",
+    "change_baisa": 4000,
+    "organization": {
+      "name_ar": "لمسات لزينة السيارات",
+      "tax_registration_no": null
+    },
+    "business_date": "2026-11-27",
+    "discount_baisa": 0,
+    "subtotal_baisa": 116000,
+    "prices_include_tax": true
+  },
+  "replayed": false
+}

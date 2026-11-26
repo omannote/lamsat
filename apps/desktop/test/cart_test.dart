@@ -1,0 +1,77 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lamsat_pos/core/money.dart';
+import 'package:lamsat_pos/modules/pos/cart.dart';
+
+Product _p(String id, int price, {String kind = 'item', bool taxable = true}) => Product(
+    id: id, sku: id, kind: kind, nameAr: id, unit: 'حبة', wholeUnitsOnly: true, trackStock: kind == 'item',
+    taxable: taxable, exactBarcode: false, unitPriceBaisa: price);
+
+void main() {
+  const inclusive = TaxSettings(enabled: true, rateBp: 500, pricesIncludeTax: true);
+  const exclusive = TaxSettings(enabled: true, rateBp: 500, pricesIncludeTax: false);
+  const none = TaxSettings(enabled: false, rateBp: 500, pricesIncludeTax: true);
+
+  test('المبالغ: تنسيق وتحليل بالبيسة', () {
+    expect(formatOmr(116000), '116.000');
+    expect(formatOmr(5), '0.005');
+    expect(parseOmr('12.5'), 12500);
+    expect(parseOmr('12'), 12000);
+    expect(parseOmr('١٢٫٥٠٠'), 12500);
+    expect(parseOmr('12.5555'), isNull);
+    expect(parseOmr('abc'), isNull);
+    expect(roundDiv(15525, 10), 1553); // 1552.5 → 1553
+    expect(roundDiv(15524, 10), 1552);
+  });
+
+  // القيم نفسها التي يتحقق منها اختبار الخادم tests/scenarios/phase1_sale.test.mjs
+  test('أربعة إطارات مع تركيب — ضريبة ضمن السعر', () {
+    final c = Cart();
+    c.add(_p('tire', 28000));
+    c.lines[0].qtyMilli = 4000;
+    c.add(_p('install', 1000, kind: 'service'));
+    c.lines[1].qtyMilli = 4000;
+    expect(c.lines[0].tax(inclusive), 5333);
+    expect(c.lines[1].tax(inclusive), 190);
+    expect(c.tax(inclusive), 5523);
+    expect(c.total(inclusive), 116000);
+  });
+
+  test('ضريبة مضافة مع خصم — مطابقة للخادم', () {
+    final c = Cart();
+    c.add(_p('tire', 34500));
+    c.lines[0].discountBaisa = 3450;
+    c.add(_p('install', 1000, kind: 'service'));
+    c.lines[1].qtyMilli = 3000;
+    expect(c.lines[0].tax(exclusive), 1553);
+    expect(c.total(exclusive), 35753);
+    expect(c.total(none), 34050);
+  });
+
+  test('إضافة الصنف نفسه تزيد الكمية', () {
+    final c = Cart();
+    c.add(_p('a', 1000));
+    expect(c.add(_p('a', 1000)), 0);
+    expect(c.lines.single.qtyMilli, 2000);
+  });
+
+  test('توزيع الدفع المختلط والباقي', () {
+    var (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 20000, tenderedBaisa: 20000);
+    expect(e, isNull);
+    expect([s!.cash, s.card, s.change], [15500, 20000, 4500]);
+    (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 0, tenderedBaisa: 30000);
+    expect(s, isNull);
+    (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 35500, tenderedBaisa: null);
+    expect([s!.cash, s.card, s.change], [0, 35500, 0]);
+    (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 40000, tenderedBaisa: null);
+    expect(s, isNull);
+  });
+
+  test('الحمولة ثابتة عند إعادة الإرسال', () {
+    final c = Cart()..add(_p('a', 1000));
+    final p = c.toPayload(cashSessionId: 's', tax: inclusive, cashBaisa: 1000, cardBaisa: 0, cashTenderedBaisa: 5000);
+    expect(p['expected_total_baisa'], 1000);
+    expect(p['cash_tendered_baisa'], 5000);
+    expect((p['lines'] as List).single['qty'], 1);
+    expect((p['payments'] as List).single, {'method': 'cash', 'amount_baisa': 1000});
+  });
+}

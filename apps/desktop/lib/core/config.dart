@@ -1,0 +1,35 @@
+import 'dart:convert';
+import 'dart:io';
+
+/// إعدادات الجهاز: تُقرأ من ملف lamsat.config.json بجوار الملف التنفيذي،
+/// أو من --dart-define أثناء التطوير. المفتاح هنا هو المفتاح العلني فقط.
+class AppConfig {
+  final String supabaseUrl;
+  final String publishableKey;
+  final String deviceCode;
+  const AppConfig({required this.supabaseUrl, required this.publishableKey, required this.deviceCode});
+
+  static const _url = String.fromEnvironment('SUPABASE_URL');
+  static const _key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  static const _device = String.fromEnvironment('DEVICE_CODE');
+
+  static AppConfig load() {
+    var url = _url, key = _key, device = _device;
+    final candidates = [
+      File('${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}lamsat.config.json'),
+      File('lamsat.config.json'),
+    ];
+    for (final f in candidates) {
+      if (!f.existsSync()) continue;
+      final j = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+      url = (j['supabase_url'] as String?) ?? url;
+      key = (j['supabase_publishable_key'] as String?) ?? key;
+      device = (j['device_code'] as String?) ?? device;
+      break;
+    }
+    if (url.isEmpty || key.isEmpty || device.isEmpty) {
+      throw const FormatException('ملف الإعدادات lamsat.config.json ناقص: supabase_url و supabase_publishable_key و device_code مطلوبة.');
+    }
+    return AppConfig(supabaseUrl: url, publishableKey: key, deviceCode: device);
+  }
+}

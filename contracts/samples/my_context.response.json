@@ -1,0 +1,32 @@
+{
+  "user": {
+    "id": "a0000000-0000-4000-8000-000000000005",
+    "full_name": "كاشير الإطارات (تجريبي)"
+  },
+  "branches": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000002",
+      "code": "TYR",
+      "roles": [
+        "cashier"
+      ],
+      "name_ar": "لمسات — الإطارات",
+      "name_en": "Lamsat Tires",
+      "permissions": [
+        "cash.close",
+        "cash.movement",
+        "cash.open",
+        "catalog.view",
+        "inventory.view",
+        "invoice.reprint",
+        "invoice.view",
+        "pos.sell"
+      ],
+      "tax_enabled": true,
+      "tax_rate_bp": 500,
+      "max_discount_bp": 0,
+      "organization_id": "b0000000-0000-4000-8000-000000000001",
+      "prices_include_tax": true
+    }
+  ]
+}

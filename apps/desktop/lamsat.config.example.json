@@ -1,0 +1,5 @@
+{
+  "supabase_url": "https://YOUR-PROJECT.supabase.co",
+  "supabase_publishable_key": "sb_publishable_xxx",
+  "device_code": "POS-TYR-01"
+}
