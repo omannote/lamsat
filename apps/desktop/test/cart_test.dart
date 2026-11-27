@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lamsat_pos/core/money.dart';
 import 'package:lamsat_pos/modules/pos/cart.dart';
+import 'package:lamsat_pos/modules/printing/receipt.dart';
 
 Product _p(String id, int price, {String kind = 'item', bool taxable = true}) => Product(
     id: id, sku: id, kind: kind, nameAr: id, unit: 'حبة', wholeUnitsOnly: true, trackStock: kind == 'item',
@@ -76,6 +77,14 @@ void main() {
     expect(d.lines.single.discountBaisa, 2000);
     expect(d.total(inclusive), c.total(inclusive));
     expect(d.customer!.plate, '777');
+  });
+
+  test('رقم واتساب: 8 خانات عُمانية تُسبق بـ 968، وغير الصالح يُرفض', () {
+    expect(ReceiptPrinter.whatsappPhone('9123 4567'), '96891234567');
+    expect(ReceiptPrinter.whatsappPhone('+968 91234567'), '96891234567');
+    expect(ReceiptPrinter.whatsappPhone('0096891234567'), '96891234567');
+    expect(ReceiptPrinter.whatsappPhone('123'), isNull);
+    expect(ReceiptPrinter.whatsappPhone(null), isNull);
   });
 
   test('الحمولة ثابتة عند إعادة الإرسال', () {

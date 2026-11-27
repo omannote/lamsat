@@ -24,6 +24,7 @@
 | `CUSTOMER_NOT_FOUND` / `VEHICLE_NOT_FOUND` | خارج المنشأة أو غير موجود | |
 | `OPERATION_MISMATCH` | معرّف العملية مستخدم لطلب مختلف أو مستخدم آخر | |
 | `OPERATION_CANCELLED` | المعرّف حُجز كملغى عبر `cancel_operation` | |
+| `SHIFT_NOT_ENABLED_FOR_ROLE` | دور المستخدم غير مفعّل لفتح الورديات في إعدادات الفرع | |
 | `REASON_REQUIRED` | سبب مكتوب مطلوب (تسوية، قبض/صرف، مرتجع، إلغاء) | |
 | `SKU_EXISTS` / `BARCODE_EXISTS` | رمز أو باركود مستخدم لصنف آخر | |
 | `INSUFFICIENT_CASH` | صرف يتجاوز نقد الدرج | `drawer_baisa` |

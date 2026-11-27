@@ -11,6 +11,7 @@ const one = async (q, p) => (await db.sql(q, p))[0];
 
 before(async () => {
   db = await startDb();
+  await db.rpc(ID.owner, 'update_branch_settings', [ID.tyr, { shift_roles: ['cashier', 'branch_manager'] }]);
   s1 = (await db.rpc(ID.cashierTyr, 'open_cash_session', [uuid(), ID.devTyr1, 20000])).session.id;
   await db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(s1, ID.tireMI, 1, 34500, [{ method: 'cash', amount_baisa: 34500 }], 34500, { cash_tendered_baisa: 50000 })]);
   await db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(s1, ID.install, 2, 1000,

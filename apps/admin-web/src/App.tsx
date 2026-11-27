@@ -9,6 +9,7 @@ import { InvoiceDetail } from './modules/invoices/InvoiceDetail';
 import { Sessions } from './modules/cash/Sessions';
 import { Catalog } from './modules/catalog/Catalog';
 import { Inventory } from './modules/inventory/Inventory';
+import { Settings } from './modules/settings/Settings';
 import logo from '/lamsat-logo.png';
 
 const useHash = () => {
@@ -61,6 +62,7 @@ export function App() {
     { key: 'sessions', label: 'الورديات والإقفالات', show: can(ctx, 'reports.view') },
     { key: 'catalog', label: 'الكتالوج', show: can(ctx, 'catalog.manage') || can(ctx, 'inventory.cost.view') },
     { key: 'inventory', label: 'المخزون والمشتريات', show: can(ctx, 'inventory.cost.view') },
+    { key: 'settings', label: 'الإعدادات', show: can(ctx, 'settings.manage') },
   ].filter((n) => n.show);
   const current = nav.some((n) => n.key === route) ? route : nav[0]?.key;
 
@@ -86,6 +88,7 @@ export function App() {
         {current === 'sessions' && <Sessions ctx={ctx} />}
         {current === 'catalog' && <Catalog ctx={ctx} />}
         {current === 'inventory' && <Inventory ctx={ctx} />}
+        {current === 'settings' && <Settings ctx={ctx} />}
         {!current && <div className="card notice">لا توجد صفحات متاحة لصلاحياتك في لوحة الإدارة.</div>}
       </main>
     </div>

@@ -14,6 +14,7 @@ const count = async (table, where = 'true', params = []) =>
 
 before(async () => {
   db = await startDb();
+  await db.rpc(ID.owner, 'update_branch_settings', [ID.tyr, { shift_roles: ['cashier', 'branch_manager'] }]);
   sTyr = (await db.rpc(ID.cashierTyr, 'open_cash_session', [uuid(), ID.devTyr1, 20000])).session.id;
   sTyr2 = (await db.rpc(ID.manager, 'open_cash_session', [uuid(), ID.devTyr2, 0])).session.id;
   sTnt = (await db.rpc(ID.cashierTnt, 'open_cash_session', [uuid(), ID.devTnt, 10000])).session.id;

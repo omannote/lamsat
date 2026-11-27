@@ -14,6 +14,14 @@ export function parseOmr(input: string): number | null {
   return m ? Number(m[1]) * 1000 + Number((m[2] ?? '').padEnd(3, '0')) : null;
 }
 
+/** رقم واتساب دولي بالأرقام فقط؛ رقم عُماني من 8 خانات يُسبق بـ 968. */
+export function whatsappPhone(raw: string | null | undefined): string | null {
+  let d = (raw ?? '').replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.length === 8) d = `968${d}`;
+  return d.length >= 10 && d.length <= 15 ? d : null;
+}
+
 /** رسالة عربية لكود خطأ الخادم. */
 export function errorText(code: string): string {
   const m: Record<string, string> = {

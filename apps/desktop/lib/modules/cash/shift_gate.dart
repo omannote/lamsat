@@ -30,7 +30,7 @@ class _State extends State<ShiftGate> {
   Map<String, dynamic>? _user, _branch, _device, _openSession;
   ShiftContext? _shift;
   String? _error;
-  bool _loading = true, _busy = false;
+  bool _loading = true, _busy = false, _shiftAllowed = true;
   final _cash = TextEditingController(text: '0');
   String _openOpId = const Uuid().v4();
 
@@ -59,6 +59,10 @@ class _State extends State<ShiftGate> {
       _device = device;
       _openSession = (dev['open_session'] as Map?)?.cast<String, dynamic>();
       if (_user == null) throw BusinessError('FORBIDDEN');
+      // الأدوار المسموح لها بفتح وردية في هذا الفرع تُضبط من إعدادات النظام (الكاشير افتراضيًا)
+      final settings = await Api.client.from('branch_settings').select('shift_roles').eq('branch_id', branch['id'] as String).maybeSingle().timeout(const Duration(seconds: 10));
+      final allowed = ((settings?['shift_roles'] as List?) ?? const ['cashier']).cast<String>();
+      _shiftAllowed = ((branch['roles'] as List?) ?? const []).cast<String>().any(allowed.contains);
       if (_openSession != null && _openSession!['mine'] == true) _enter(_openSession!['id'] as String);
     } on BusinessError catch (e) {
       _error = errorMessage(e.code);
@@ -98,6 +102,7 @@ class _State extends State<ShiftGate> {
       _enter((r['session'] as Map)['id'] as String);
     } on BusinessError catch (e) {
       _openOpId = const Uuid().v4();
+      if (e.code == 'SHIFT_NOT_ENABLED_FOR_ROLE') _shiftAllowed = false;
       if (e.code == 'SESSION_ALREADY_OPEN') {
         _busy = false;
         await _load();
@@ -153,6 +158,9 @@ class _State extends State<ShiftGate> {
                   if (otherOpen)
                     Text('توجد وردية مفتوحة على هذا الصندوق باسم ${_openSession!['opened_by_name']}. يجب إقفالها أولًا.',
                         style: const TextStyle(color: Brand.bad, fontSize: 17))
+                  else if (_branch != null && !_shiftAllowed)
+                    const Text('الورديات متاحة لحسابات الكاشير فقط. لتفعيلها لهذا الحساب يضيف المالك دوره من «الإعدادات» في لوحة الإدارة.',
+                        style: TextStyle(color: Brand.bad, fontSize: 17))
                   else if (_branch != null) ...[
                     const SizedBox(height: 8),
                     TextField(
@@ -168,8 +176,8 @@ class _State extends State<ShiftGate> {
                   ],
                   if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Brand.bad))),
                   const SizedBox(height: 20),
-                  if (_branch != null && !otherOpen) FilledButton(onPressed: _busy ? null : _open, child: Text(_busy ? 'جارٍ الفتح…' : 'فتح الوردية (Enter)')),
-                  if (_branch == null || otherOpen) OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+                  if (_branch != null && !otherOpen && _shiftAllowed) FilledButton(onPressed: _busy ? null : _open, child: Text(_busy ? 'جارٍ الفتح…' : 'فتح الوردية (Enter)')),
+                  if (_branch == null || otherOpen || !_shiftAllowed) OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
                   const SizedBox(height: 8),
                   TextButton(onPressed: () => Api.client.auth.signOut(), child: const Text('تسجيل الخروج')),
                 ]),

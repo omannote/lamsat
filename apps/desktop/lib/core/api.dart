@@ -97,6 +97,7 @@ String errorMessage(String code) {
     'OPERATION_MISMATCH': 'معرّف العملية مستخدم لطلب مختلف. ابدأ فاتورة جديدة.',
     'INVALID_AMOUNT': 'المبلغ غير صالح.',
     'REASON_REQUIRED': 'اكتب السبب.',
+    'SHIFT_NOT_ENABLED_FOR_ROLE': 'الورديات غير مفعّلة لدور هذا الحساب. يفعّلها المالك من إعدادات النظام.',
     'INSUFFICIENT_CASH': 'المبلغ أكبر من النقد الموجود في الدرج.',
     'CLOSE_NOTE_REQUIRED': 'يوجد فرق في الصندوق. اكتب سبب الفرق.',
     'ACCOUNT_MAPPING_MISSING': 'حسابات الصندوق غير مهيأة. راجع المحاسب.',

@@ -11,7 +11,8 @@ const sell = (lines, payments, total, extra = {}) => db.rpc(ID.cashierTyr, 'appr
 const balanced = async () => Number((await one(`select count(*) n from (select entry_id from journal_lines group by 1 having sum(debit_baisa)<>sum(credit_baisa)) x`)).n);
 const stockOk = async () => Number((await one(`select count(*) n from (select l.id from inventory_lots l join stock_movements m on m.lot_id=l.id group by l.id, l.qty_on_hand having sum(m.qty_delta)<>l.qty_on_hand) x`)).n);
 
-before(async () => { db = await startDb(); s = (await db.rpc(ID.cashierTyr, 'open_cash_session', [uuid(), ID.devTyr1, 50000])).session.id; });
+before(async () => { db = await startDb();
+  await db.rpc(ID.owner, 'update_branch_settings', [ID.tyr, { shift_roles: ['cashier', 'branch_manager'] }]); s = (await db.rpc(ID.cashierTyr, 'open_cash_session', [uuid(), ID.devTyr1, 50000])).session.id; });
 after(async () => { await db.stop(); });
 
 test('الكتالوج: إضافة وتعديل صنف مع باركود وسعر فرع، حسب الصلاحية', async () => {

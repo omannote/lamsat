@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatOmr, muscatToday, parseOmr } from './money';
+import { formatOmr, muscatToday, parseOmr, whatsappPhone } from './money';
 
 describe('formatOmr', () => {
   it('يعرض ثلاث خانات للبيسة', () => {
@@ -20,6 +20,15 @@ describe('parseOmr', () => {
     expect(parseOmr('28')).toBe(28000);
     expect(parseOmr('1.2345')).toBeNull();
     expect(parseOmr('abc')).toBeNull();
+  });
+});
+
+describe('whatsappPhone', () => {
+  it('يوحّد الأرقام العُمانية ويرفض غير الصالح', () => {
+    expect(whatsappPhone('9123 4567')).toBe('96891234567');
+    expect(whatsappPhone('+968 91234567')).toBe('96891234567');
+    expect(whatsappPhone('123')).toBeNull();
+    expect(whatsappPhone(null)).toBeNull();
   });
 });
 

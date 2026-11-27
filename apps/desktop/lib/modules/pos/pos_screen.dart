@@ -100,15 +100,32 @@ class _State extends State<PosScreen> {
     if (list.isEmpty) setState(() => _searchError = 'لا يوجد صنف مطابق «${text.trim()}».');
   }
 
-  void _addProduct(Product p) {
+  /// صنف مخزني بلا رصيد كافٍ لا يُضاف للبيع: يظهر تنبيه ويبقى خارج السلة. (الخادم يتحقق مجددًا عند الاعتماد.)
+  Future<void> _addProduct(Product p) async {
+    if (p.trackStock) {
+      final available = (p.stockQty ?? 0) * 1000;
+      final inCart = _cart.lines.where((l) => l.product.id == p.id).fold<int>(0, (s, l) => s + l.qtyMilli);
+      if (available <= 0 || inCart + 1000 > available) {
+        setState(() {
+          _search.clear();
+          _results = [];
+          _resultsFor = null;
+          _searchError = null;
+        });
+        await _open<void>(_MessageDialog(
+            'لا يوجد مخزون',
+            available <= 0
+                ? 'المنتج «${p.nameAr}» لا يوجد به مخزون في هذا الفرع، ولم يُضف إلى الفاتورة.'
+                : 'المتاح من «${p.nameAr}» هو ${p.stockQty} ${p.unit} فقط وكلها في الفاتورة. لم تُضف كمية أخرى.'));
+        return;
+      }
+    }
     setState(() {
       _lineIndex = _cart.add(p);
       _search.clear();
       _results = [];
       _resultsFor = null;
-      _searchError = (p.trackStock && (p.stockQty ?? 0) < _cart.lines[_lineIndex].qtyMilli / 1000)
-          ? 'تنبيه: الرصيد المتاح من «${p.nameAr}» هو ${p.stockQty ?? 0}.'
-          : null;
+      _searchError = null;
     });
     _searchFocus.requestFocus();
   }
@@ -403,6 +420,7 @@ class _State extends State<PosScreen> {
                         color: i == _resultIndex ? const Color(0xFFFFF0EA) : Colors.white,
                         child: InkWell(
                           onTap: () => _addProduct(p),
+                          mouseCursor: out ? SystemMouseCursors.forbidden : null,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             child: Row(children: [

@@ -273,17 +273,50 @@ class ReceiptPrinter {
     ];
   }
 
-  /// يحفظ الفاتورة PDF في «المستندات\Lamsat\Invoices» بالشكل المناسب لنوع الطابعة المختارة ويعيد مسار الملف.
-  static Future<String> exportPdf(Map<String, dynamic> inv) async {
+  /// يكتب الفاتورة PDF في مجلد مؤقت (للعرض أو السحب إلى واتساب) بالشكل المناسب لنوع الطابعة، ويعيد المسار.
+  /// لا تُحفظ نسخة في النظام؛ الملف المؤقت يُستبدل عند كل عرض.
+  static Future<String> tempPdf(Map<String, dynamic> inv) async {
     final kind = await savedKind();
     final bytes = await buildPdf(inv, kind: kind, reprint: false);
-    final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? Directory.current.path;
-    final dir = Directory('$home${Platform.pathSeparator}Documents${Platform.pathSeparator}Lamsat${Platform.pathSeparator}Invoices');
+    final dir = Directory('${Directory.systemTemp.path}${Platform.pathSeparator}Lamsat');
     await dir.create(recursive: true);
     final safe = (inv['invoice_no'] as String).replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-    final file = File('${dir.path}${Platform.pathSeparator}$safe${kind == PrinterKind.a4 ? '' : '-receipt'}.pdf');
+    final file = File('${dir.path}${Platform.pathSeparator}$safe.pdf');
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
+  }
+
+  /// يفتح ملفًا أو رابطًا بالتطبيق الافتراضي في Windows (عارض PDF أو المتصفح).
+  static Future<void> openFile(String path) => _shellOpen(path);
+  static Future<void> openUrl(String url) => _shellOpen(url);
+  static Future<void> _shellOpen(String target) async {
+    if (Platform.isWindows) {
+      await Process.start('rundll32', ['url.dll,FileProtocolHandler', target]);
+    } else {
+      await Process.start(Platform.isMacOS ? 'open' : 'xdg-open', [target]);
+    }
+  }
+
+  /// رقم واتساب دولي بالأرقام فقط. رقم عُماني من 8 خانات يُسبق بـ 968. يعيد null إذا كان غير صالح.
+  static String? whatsappPhone(String? raw) {
+    var d = (raw ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (d.startsWith('00')) d = d.substring(2);
+    if (d.length == 8) d = '968$d';
+    return (d.length >= 10 && d.length <= 15) ? d : null;
+  }
+
+  /// رابط محادثة واتساب مع العميل برسالة جاهزة (بلا ربط API: يُفتح في واتساب المحل على هذا الجهاز).
+  static String whatsappUrl(Map<String, dynamic> inv, String phone) {
+    final branch = (inv['branch'] as Map).cast<String, dynamic>();
+    final customer = inv['customer'] as Map?;
+    final text = [
+      'مرحبًا${customer != null ? ' ${customer['name']}' : ''}،',
+      'شكرًا لزيارتكم ${branch['receipt_header_ar'] ?? branch['name_ar']}.',
+      'فاتورتكم رقم ${inv['invoice_no']} بتاريخ ${_when(inv)}',
+      'الإجمالي: ${formatOmr((inv['total_baisa'] as num).toInt())} ر.ع',
+      if (branch['phone'] != null) 'للاستفسار: ${branch['phone']}',
+    ].join('\n');
+    return 'https://wa.me/$phone?text=${Uri.encodeComponent(text)}';
   }
 
   /// يفتح مجلد الملف في مستكشف Windows مع تحديده.

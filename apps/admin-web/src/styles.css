@@ -86,3 +86,5 @@ label.check { display: flex !important; align-items: center; gap: .4rem; color: 
 table.lines { margin: .8rem 0; } table.lines td { white-space: normal; }
 .btn.danger { background: #fff; border-color: #f0b4ad; color: var(--bad); font-weight: 600; }
 .card > .page-head { margin-bottom: .6rem; } .card .audit li { gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: .4rem; }
+fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 .8rem; padding: .7rem .9rem; } legend { font-weight: 600; padding: 0 .4rem; }
+a.btn { text-decoration: none; display: inline-block; }

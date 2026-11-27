@@ -83,6 +83,10 @@ class _LineEditState extends State<LineEditDialog> {
       setState(() => _error = l.product.wholeUnitsOnly ? 'هذا الصنف يباع بعدد صحيح.' : 'كمية غير صالحة.');
       return;
     }
+    if (l.product.trackStock && q > (l.product.stockQty ?? 0) * 1000) {
+      setState(() => _error = 'المتاح في المخزون ${l.product.stockQty ?? 0} ${l.product.unit} فقط.');
+      return;
+    }
     final d = widget.maxDiscountBp > 0 ? parseOmr(_disc.text.isEmpty ? '0' : _disc.text) : 0;
     final gross = roundDiv(q * l.unitPriceBaisa, 1000);
     if (d == null || d > gross) {
@@ -146,7 +150,7 @@ class SaleDoneDialog extends StatefulWidget {
 class _SaleDoneState extends State<SaleDoneDialog> {
   bool _printing = true;
   String? _printError;
-  String? _savedPath, _saveError;
+  String? _pdfNote, _pdfError;
 
   @override
   void initState() {
@@ -166,14 +170,35 @@ class _SaleDoneState extends State<SaleDoneDialog> {
     if (mounted) setState(() => _printing = false);
   }
 
-  /// حفظ الفاتورة PDF بالشكل المناسب لنوع الطابعة المختارة.
-  Future<void> _export() async {
+  /// عرض الفاتورة PDF في عارض الجهاز (ملف مؤقت، لا تُحفظ في النظام).
+  Future<void> _viewPdf() async {
     try {
-      final path = await ReceiptPrinter.exportPdf(widget.invoice);
-      if (mounted) setState(() { _savedPath = path; _saveError = null; });
-      await ReceiptPrinter.revealInExplorer(path);
+      await ReceiptPrinter.openFile(await ReceiptPrinter.tempPdf(widget.invoice));
+      if (mounted) setState(() { _pdfNote = 'فُتحت الفاتورة PDF للعرض.'; _pdfError = null; });
     } catch (_) {
-      if (mounted) setState(() => _saveError = 'تعذّر حفظ ملف PDF. تحقق من صلاحية الكتابة في مجلد المستندات.');
+      if (mounted) setState(() => _pdfError = 'تعذّر عرض ملف PDF.');
+    }
+  }
+
+  /// إرسال للعميل بالطريقة التقليدية: يفتح محادثة واتساب مع رقم العميل برسالة جاهزة،
+  /// ويُظهر ملف PDF في مجلده ليُسحب إلى المحادثة. الإرسال يتم من واتساب المحل المفتوح على هذا الجهاز.
+  Future<void> _whatsapp() async {
+    var phone = ReceiptPrinter.whatsappPhone((widget.invoice['customer'] as Map?)?['phone'] as String?);
+    if (phone == null) {
+      final typed = await showDialog<String>(context: context, builder: (_) => const _PhoneDialog());
+      phone = ReceiptPrinter.whatsappPhone(typed);
+      if (phone == null) {
+        if (mounted && typed != null) setState(() => _pdfError = 'رقم الهاتف غير صالح.');
+        return;
+      }
+    }
+    try {
+      final path = await ReceiptPrinter.tempPdf(widget.invoice);
+      await ReceiptPrinter.openUrl(ReceiptPrinter.whatsappUrl(widget.invoice, phone));
+      await ReceiptPrinter.revealInExplorer(path);
+      if (mounted) setState(() { _pdfNote = 'فُتحت محادثة واتساب مع $phone والرسالة جاهزة. اسحب ملف PDF الظاهر في المجلد إلى المحادثة ثم اضغط إرسال.'; _pdfError = null; });
+    } catch (_) {
+      if (mounted) setState(() => _pdfError = 'تعذّر فتح واتساب. تأكد من وجود متصفح على الجهاز.');
     }
   }
 
@@ -184,12 +209,13 @@ class _SaleDoneState extends State<SaleDoneDialog> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => _print(true),
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _export,
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true): _viewPdf,
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true): _whatsapp,
       },
       child: AlertDialog(
         title: Text(widget.reprint ? 'إعادة طباعة الفاتورة' : 'تم اعتماد الفاتورة'),
         content: SizedBox(
-          width: 460,
+          width: 560,
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(inv['invoice_no'] as String, textDirection: TextDirection.ltr, textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
             Text('الإجمالي ${formatOmr((inv['total_baisa'] as num).toInt())} ر.ع', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
@@ -204,17 +230,53 @@ class _SaleDoneState extends State<SaleDoneDialog> {
               Text('الفاتورة معتمدة ومحفوظة، لكن تعذّرت الطباعة:\n$_printError', textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad, fontSize: 16))
             else
               const Text('أُرسلت الفاتورة إلى الطابعة.', textAlign: TextAlign.center, style: TextStyle(color: Brand.ok)),
-            if (_savedPath != null)
-              Padding(padding: const EdgeInsets.only(top: 10), child: Text('حُفظ الملف:\n$_savedPath', textAlign: TextAlign.center, textDirection: TextDirection.ltr, style: const TextStyle(color: Brand.ok, fontSize: 14))),
-            if (_saveError != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_saveError!, textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad))),
+            if (_pdfNote != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_pdfNote!, textAlign: TextAlign.center, style: const TextStyle(color: Brand.ok, fontSize: 14))),
+            if (_pdfError != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_pdfError!, textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad))),
           ]),
         ),
         actions: [
-          OutlinedButton(onPressed: _export, child: const Text('حفظ PDF (Ctrl+S)')),
+          OutlinedButton(onPressed: _whatsapp, child: const Text('واتساب للعميل (Ctrl+W)')),
+          OutlinedButton(onPressed: _viewPdf, child: const Text('عرض PDF (Ctrl+O)')),
           OutlinedButton(onPressed: _printing ? null : () => _print(true), child: const Text('إعادة الطباعة (Ctrl+P)')),
           FilledButton(autofocus: true, onPressed: () => Navigator.pop(context), child: Text(widget.reprint ? 'إغلاق (Enter)' : 'فاتورة جديدة (Enter)')),
         ],
       ),
     );
   }
+}
+
+/// إدخال رقم واتساب عندما لا يكون للفاتورة عميل برقم هاتف.
+class _PhoneDialog extends StatefulWidget {
+  const _PhoneDialog();
+  @override
+  State<_PhoneDialog> createState() => _PhoneState();
+}
+
+class _PhoneState extends State<_PhoneDialog> {
+  final _c = TextEditingController();
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('رقم واتساب العميل'),
+        content: SizedBox(
+          width: 360,
+          child: TextField(
+            controller: _c,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(labelText: 'مثال: 91234567 أو 96891234567'),
+            onSubmitted: (v) => Navigator.pop(context, v),
+          ),
+        ),
+        actions: [
+          OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('رجوع (Esc)')),
+          FilledButton(onPressed: () => Navigator.pop(context, _c.text), child: const Text('متابعة (Enter)')),
+        ],
+      );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { rpc, supabase } from '../../lib/supabase';
-import { formatDateTime, formatOmr } from '../../lib/money';
+import { formatDateTime, formatOmr, whatsappPhone } from '../../lib/money';
 import { can, type Ctx, type Invoice } from '../../lib/types';
 import { RefundPanel } from './RefundPanel';
 
@@ -46,12 +46,16 @@ export function InvoiceDetail({ ctx, id }: { ctx: Ctx; id: string }) {
 
   if (error) return <div className="notice error">{error} <a href="#/invoices">العودة للقائمة</a></div>;
   if (!inv) return <div className="muted">جارٍ التحميل…</div>;
+  // إرسال للعميل بالطريقة التقليدية: يفتح واتساب ويب برسالة جاهزة، والإرسال من رقم المحل المفتوح على هذا الجهاز
+  const wa = whatsappPhone(inv.customer?.phone);
+  const waText = `مرحبًا ${inv.customer?.name ?? ''}،\nشكرًا لزيارتكم ${inv.branch.name_ar}.\nفاتورتكم رقم ${inv.invoice_no} بإجمالي ${formatOmr(inv.total_baisa)} ر.ع`;
 
   return (
     <>
       <header className="page-head">
         <h1><a href="#/invoices" className="back">الفواتير</a> / <span dir="ltr" className="mono">{inv.invoice_no}</span>
           <span className={`badge ${inv.status}`}>{inv.status === 'approved' ? 'معتمدة' : 'ملغاة'}</span></h1>
+        {wa && <a className="btn" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}?text=${encodeURIComponent(waText)}`}>إرسال واتساب للعميل</a>}
       </header>
       <div className="grid2">
         <div className="card">
