@@ -11,14 +11,14 @@ import '../shell/pages.dart';
 
 /// سياق المستخدم على هذا الجهاز. [sessionId] = null يعني لا وردية: الحساب يتصفح ولا يصدر فواتير.
 class ShiftContext {
-  final String userName, branchId, branchName, branchCode, deviceId, deviceName;
+  final String userName, organizationId, branchId, branchName, branchCode, deviceId, deviceName;
   final String? sessionId;
   final bool canOpenShift;
   final TaxSettings tax;
   final int maxDiscountBp;
   final Set<String> permissions;
   const ShiftContext({
-    required this.userName, required this.branchId, required this.branchName, required this.branchCode, required this.deviceId,
+    required this.userName, required this.organizationId, required this.branchId, required this.branchName, required this.branchCode, required this.deviceId,
     required this.deviceName, required this.sessionId, required this.canOpenShift, required this.tax, required this.maxDiscountBp, required this.permissions,
   });
 }
@@ -64,7 +64,7 @@ class _State extends State<ShiftGate> {
       final allowed = ((settings?['shift_roles'] as List?) ?? const ['cashier']).cast<String>();
       final perms = (b['permissions'] as List).cast<String>().toSet();
       _ctx = ShiftContext(
-        userName: user['full_name'] as String, branchId: b['id'] as String, branchName: b['name_ar'] as String, branchCode: b['code'] as String,
+        userName: user['full_name'] as String, organizationId: b['organization_id'] as String, branchId: b['id'] as String, branchName: b['name_ar'] as String, branchCode: b['code'] as String,
         deviceId: device['id'] as String, deviceName: device['name'] as String, sessionId: session?['id'] as String?,
         canOpenShift: perms.contains('cash.open') && ((b['roles'] as List?) ?? const []).cast<String>().any(allowed.contains),
         tax: TaxSettings(enabled: b['tax_enabled'] as bool, rateBp: (b['tax_rate_bp'] as num).toInt(), pricesIncludeTax: b['prices_include_tax'] as bool),

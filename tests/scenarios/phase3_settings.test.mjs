@@ -81,3 +81,51 @@ test('تحويل بنكي وآجل: الآجل يتطلب عميلًا، يُر�
   assert.equal((await db.rpc(ID.manager, 'customer_account', [cust])).balance_baisa, -9000);
   assert.equal((await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa - before, 6000);
 });
+
+test('بطاقة الصنف، استلام مشتريات نقدي وآجل بضريبة مدخلات، حساب المورّد وسداده، وأدنى سعر للكاشير', async () => {
+  const s = (await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session.id;
+  const sup = (await db.rpc(ID.manager, 'save_supplier', [{ organization_id: ID.org, name: 'مورّد البطاقة' }])).id;
+  // المدير لا يدير الأصناف؛ المالك يحفظ بطاقة بحقولها الجديدة
+  const base = { organization_id: ID.org, sku: 'TR-CARD-1', name_ar: 'إطار بطاقة', kind: 'item', category: 'tire', base_price_baisa: 30000,
+    tire_width: 195, tire_aspect: 65, tire_rim: 15 };
+  await expectCode(db.rpc(ID.manager, 'save_product', [base]), 'FORBIDDEN');
+  const p = await db.rpc(ID.owner, 'save_product', [{ ...base, default_supplier_id: sup, reorder_level: 4, min_price_baisa: 28000, tire_year: 2024, tire_country: 'اليابان' }]);
+  assert.deepEqual([p.default_supplier_id, Number(p.reorder_level), p.min_price_baisa, p.tire_year], [sup, 4, 28000, 2024]);
+  // حفظ بلا الحقول الإضافية (لوحة الإدارة القديمة) لا يمسحها
+  const p2 = await db.rpc(ID.owner, 'save_product', [{ ...base, id: p.id, base_price_baisa: 31000 }]);
+  assert.deepEqual([p2.base_price_baisa, p2.min_price_baisa, p2.tire_country], [31000, 28000, 'اليابان']);
+
+  const lines = [{ product_id: p.id, qty: 10, unit_cost_baisa: 20000 }];
+  await expectCode(db.rpc(ID.manager, 'receive_purchase', [uuid(), { branch_id: ID.tyr, lines, payment_method: 'credit' }]), 'SUPPLIER_REQUIRED');
+  const before = (await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa;
+  await expectCode(db.rpc(ID.manager, 'receive_purchase', [uuid(), { branch_id: ID.tyr, lines, payment_method: 'cash', cash_session_id: s, tax_rate_bp: 500 }]), 'INSUFFICIENT_CASH');
+  const cr = await db.rpc(ID.manager, 'receive_purchase', [uuid(), { branch_id: ID.tyr, supplier_id: sup, reference: 'INV-9', lines, payment_method: 'credit',
+    due_date: '2026-12-31', tax_rate_bp: 500 }]);
+  assert.deepEqual([cr.total_cost_baisa, cr.tax_baisa, cr.payable_baisa], [200000, 10000, 210000]);
+  const small = [{ product_id: p.id, qty: 1, unit_cost_baisa: 2000 }];
+  await db.rpc(ID.manager, 'receive_purchase', [uuid(), { branch_id: ID.tyr, lines: small, payment_method: 'cash', cash_session_id: s, tax_rate_bp: 500 }]);
+  assert.equal((await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa - before, -2100);
+
+  const ov = (await db.rpc(ID.manager, 'suppliers_overview', [ID.tyr])).find((x) => x.id === sup);
+  assert.equal(ov.balance_baisa, 210000);
+  await expectCode(db.rpc(ID.manager, 'pay_supplier', [uuid(), ID.tyr, sup, 'transfer', 300000, null, null]), 'AMOUNT_EXCEEDS_BALANCE');
+  const pay = await db.rpc(ID.manager, 'pay_supplier', [uuid(), ID.tyr, sup, 'transfer', 110000, 'TRX-7', null]);
+  assert.equal(pay.balance_baisa, 100000);
+  const bad = await db.sql(`select e.id from journal_entries e join journal_lines l on l.entry_id=e.id group by e.id having sum(l.debit_baisa)<>sum(l.credit_baisa)`);
+  assert.equal(bad.length, 0, 'كل القيود متوازنة');
+
+  const card = await db.rpc(ID.manager, 'product_card', [ID.tyr, p.id]);
+  assert.deepEqual([card.supplier_name, card.can_edit, card.movements.length, Number(card.branches.find((b) => b.branch_id === ID.tyr).qty)], ['مورّد البطاقة', false, 2, 11]);
+  const row = (await db.rpc(ID.manager, 'stock_report', [ID.tyr])).find((x) => x.product_id === p.id);
+  assert.deepEqual([Number(row.qty), row.tire_year, Number(row.reorder_level)], [11, 2024, 4]);
+  assert.equal((await db.rpc(ID.manager, 'list_purchases', [ID.tyr]))[0].payment_method, 'cash');
+
+  // أدنى سعر: الكاشير لا ينزل تحته بالخصم، والمدير يستطيع
+  await db.sql(`update memberships set max_discount_bp = 5000 where user_id = any($1)`, [[ID.cashierTyr, ID.manager]]);
+  await db.sql(`insert into role_permissions (role_code, permission_code) values ('cashier', 'pos.discount') on conflict do nothing`);
+  const cs = (await db.rpc(ID.cashierTyr, 'open_cash_session', [uuid(), ID.devTyr2, 0])).session.id;
+  const sale = (sid) => ({ cash_session_id: sid, lines: [{ product_id: p.id, qty: 1, unit_price_baisa: 31000, discount_baisa: 5000 }],
+    payments: [{ method: 'cash', amount_baisa: 26000 }], expected_total_baisa: 26000 });
+  await expectCode(db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(cs)]), 'BELOW_MIN_PRICE');
+  assert.equal((await db.rpc(ID.manager, 'approve_sale', [uuid(), sale(s)])).status, 'approved');
+});

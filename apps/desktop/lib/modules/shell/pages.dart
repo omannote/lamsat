@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api.dart';
@@ -8,6 +9,8 @@ import '../cash/cash_movement_dialog.dart';
 import '../cash/close_shift_dialog.dart';
 import '../cash/shift_gate.dart';
 import '../printing/printer_settings_dialog.dart';
+
+part 'inventory_pages.dart';
 
 /// هيكل صفحة: عنوان، أدوات، ومحتوى داخل بطاقة بيضاء.
 class _Page extends StatelessWidget {
@@ -51,154 +54,6 @@ Widget _head(List<(String, int)> cols) => Container(
     );
 
 String _fail(Object e) => e is BusinessError ? errorMessage(e.code) : 'لا يوجد اتصال بالخادم.';
-
-// ───────────────────────── المخزون ─────────────────────────
-class InventoryPage extends StatefulWidget {
-  final ShiftContext ctx;
-  const InventoryPage({super.key, required this.ctx});
-  @override
-  State<InventoryPage> createState() => _InventoryState();
-}
-
-class _InventoryState extends State<InventoryPage> {
-  List<Map<String, dynamic>>? _rows;
-  String? _error;
-  String _filter = 'all', _q = '';
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(_load);
-  }
-
-  Future<void> _load() async {
-    try {
-      final r = await Api.rpc('stock_report', {'p_branch_id': widget.ctx.branchId});
-      if (mounted) setState(() { _rows = (r as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList(); _error = null; });
-    } catch (e) {
-      if (mounted) setState(() => _error = _fail(e));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = (_rows ?? []).where((r) {
-      final q = (r['qty'] as num);
-      if (_filter == 'low' && !(q > 0 && q <= 3)) return false;
-      if (_filter == 'out' && q > 0) return false;
-      return _q.isEmpty || '${r['name_ar']} ${r['sku']} ${r['tire_size'] ?? ''}'.toLowerCase().contains(_q.toLowerCase());
-    }).toList();
-    final showCost = rows.any((r) => r['value_baisa'] != null);
-    final low = (_rows ?? []).where((r) => (r['qty'] as num) > 0 && (r['qty'] as num) <= 3).length;
-    final out = (_rows ?? []).where((r) => (r['qty'] as num) <= 0).length;
-    return _Page(
-      title: 'المخزون — ${widget.ctx.branchName}',
-      tools: [
-        SizedBox(width: 280, child: TextField(decoration: const InputDecoration(hintText: 'بحث بالاسم أو المقاس', isDense: true), onChanged: (v) => setState(() => _q = v.trim()))),
-        const SizedBox(width: 12),
-        SegmentedButton<String>(
-          segments: [const ButtonSegment(value: 'all', label: Text('الكل')), ButtonSegment(value: 'low', label: Text('منخفض ($low)')), ButtonSegment(value: 'out', label: Text('نافد ($out)'))],
-          selected: {_filter},
-          onSelectionChanged: (s) => setState(() => _filter = s.first),
-        ),
-        const Spacer(),
-        OutlinedButton(onPressed: _load, child: const Text('تحديث')),
-      ],
-      child: _error != null
-          ? _note(_error!, bad: true)
-          : _rows == null
-              ? const Center(child: CircularProgressIndicator())
-              : Column(children: [
-                  _head([('الصنف', 5), ('المقاس', 2), ('المتوفر', 2), ('سعر البيع', 2), if (showCost) ('قيمة المخزون', 2), ('الحالة', 2)]),
-                  Expanded(
-                    child: rows.isEmpty
-                        ? _note('لا توجد أصناف مطابقة.')
-                        : ListView.separated(
-                            itemCount: rows.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1, color: Brand.line),
-                            itemBuilder: (_, i) {
-                              final r = rows[i];
-                              final q = r['qty'] as num;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                                child: Row(children: [
-                                  _cell('${r['name_ar']}', flex: 5, bold: true),
-                                  _cell('${r['tire_size'] ?? '—'}', flex: 2, num: true),
-                                  _cell('$q ${r['unit']}', flex: 2),
-                                  _cell(formatOmr((r['price_baisa'] as num).toInt()), flex: 2, num: true),
-                                  if (showCost) _cell(r['value_baisa'] == null ? '—' : formatOmr((r['value_baisa'] as num).toInt()), flex: 2, num: true),
-                                  _cell(q <= 0 ? 'نافد' : (q <= 3 ? 'منخفض' : 'متوفر'), flex: 2, bold: true, color: q <= 0 ? Brand.bad : (q <= 3 ? const Color(0xFF9A5B00) : Brand.ok)),
-                                ]),
-                              );
-                            }),
-                  ),
-                ]),
-    );
-  }
-}
-
-// ───────────────────────── المشتريات ─────────────────────────
-class PurchasesPage extends StatefulWidget {
-  final ShiftContext ctx;
-  const PurchasesPage({super.key, required this.ctx});
-  @override
-  State<PurchasesPage> createState() => _PurchasesState();
-}
-
-class _PurchasesState extends State<PurchasesPage> {
-  List<Map<String, dynamic>>? _rows;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() async {
-      try {
-        final r = await Api.client.from('purchase_receipts').select('id, reference, total_cost_baisa, created_at').eq('branch_id', widget.ctx.branchId)
-            .order('created_at', ascending: false).limit(100).timeout(const Duration(seconds: 12));
-        if (mounted) setState(() => _rows = r.cast<Map<String, dynamic>>());
-      } catch (_) {
-        if (mounted) setState(() => _error = 'تعذّر تحميل المشتريات. تحقق من الاتصال.');
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => _Page(
-        title: 'المشتريات — ${widget.ctx.branchName}',
-        child: !widget.ctx.permissions.contains('inventory.cost.view')
-            ? _note('عرض المشتريات يتطلب صلاحية مدير الفرع أو المالك.')
-            : _error != null
-                ? _note(_error!, bad: true)
-                : _rows == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : Column(children: [
-                        _head([('التاريخ', 3), ('رقم فاتورة المورّد', 4), ('الإجمالي بالتكلفة', 3)]),
-                        Expanded(
-                          child: _rows!.isEmpty
-                              ? _note('لا توجد مشتريات مستلمة بعد.')
-                              : ListView.separated(
-                                  itemCount: _rows!.length,
-                                  separatorBuilder: (_, __) => const Divider(height: 1, color: Brand.line),
-                                  itemBuilder: (_, i) {
-                                    final r = _rows![i];
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                                      child: Row(children: [
-                                        _cell('${r['created_at']}'.substring(0, 10), flex: 3, num: true),
-                                        _cell('${r['reference'] ?? '—'}', flex: 4),
-                                        _cell(formatOmr((r['total_cost_baisa'] as num).toInt()), flex: 3, num: true, bold: true),
-                                      ]),
-                                    );
-                                  }),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text('استلام مشتريات جديدة وإضافة الأصناف يتمّان حاليًا من لوحة الإدارة (المخزون والمشتريات). نقلهما إلى هذه الشاشة ضمن العمل القادم.', style: TextStyle(color: Brand.muted)),
-                        ),
-                      ]),
-      );
-}
 
 // ───────────────────────── العملاء ─────────────────────────
 class CustomersPage extends StatefulWidget {
