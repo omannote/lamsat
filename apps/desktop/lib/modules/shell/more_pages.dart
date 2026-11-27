@@ -1299,7 +1299,7 @@ class _SettingsState extends State<SettingsPage> {
       await Api.rpc('update_branch_settings', {
         'p_branch_id': widget.ctx.branchId,
         'p_settings': {
-          'shift_roles': _shiftRoles.toList(), 'tax_enabled': _taxEnabled, 'tax_rate_bp': rate ~/ 10, 'prices_include_tax': _inclusive,
+          if (_canUsers) 'shift_roles': _shiftRoles.toList(), 'tax_enabled': _taxEnabled, 'tax_rate_bp': rate ~/ 10, 'prices_include_tax': _inclusive,
           'receipt_header_ar': _header.text.trim(), 'receipt_footer_ar': _footer.text.trim(),
         }
       });
@@ -1355,14 +1355,14 @@ class _SettingsState extends State<SettingsPage> {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final e = _canSettings && !_busy;
     return ListView(padding: const EdgeInsets.all(18), children: [
-      if (!_canSettings) const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('للعرض فقط: إعدادات الفرع يغيّرها المالك.', style: TextStyle(color: Color(0xFF9A5B00), fontWeight: FontWeight.w600))),
-      const Text('من يفتح الورديات (ويصدر الفواتير) في هذا الفرع', style: TextStyle(fontWeight: FontWeight.w800)),
+      if (!_canSettings) const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('للعرض فقط: إعدادات الفرع يغيّرها المالك أو مدير الفرع.', style: TextStyle(color: Color(0xFF9A5B00), fontWeight: FontWeight.w600))),
+      Text('من يفتح الورديات (ويصدر الفواتير) في هذا الفرع${_canUsers ? '' : ' — يحدده المالك'}', style: const TextStyle(fontWeight: FontWeight.w800)),
       Wrap(spacing: 14, children: [
         for (final r in _roleLabels.entries)
           Row(mainAxisSize: MainAxisSize.min, children: [
             Checkbox(
                 value: _shiftRoles.contains(r.key),
-                onChanged: e && r.key != 'cashier' ? (v) => setState(() => v == true ? _shiftRoles.add(r.key) : _shiftRoles.remove(r.key)) : null),
+                onChanged: e && _canUsers && r.key != 'cashier' ? (v) => setState(() => v == true ? _shiftRoles.add(r.key) : _shiftRoles.remove(r.key)) : null),
             Text(r.value),
           ]),
       ]),

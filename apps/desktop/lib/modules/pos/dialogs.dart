@@ -203,11 +203,19 @@ class _SaleDoneState extends State<SaleDoneDialog> {
     }
     try {
       final path = await ReceiptPrinter.tempPdf(widget.invoice);
+      final copied = await ReceiptPrinter.copyFileToClipboard(path);
       await ReceiptPrinter.openUrl(ReceiptPrinter.whatsappUrl(widget.invoice, phone));
-      await ReceiptPrinter.revealInExplorer(path);
-      if (mounted) setState(() { _pdfNote = 'فُتحت محادثة واتساب مع $phone والرسالة جاهزة. اسحب ملف PDF الظاهر في المجلد إلى المحادثة ثم اضغط إرسال.'; _pdfError = null; });
+      if (!copied) await ReceiptPrinter.revealInExplorer(path);
+      if (mounted) {
+        setState(() {
+          _pdfNote = copied
+              ? 'فُتح واتساب ويب على محادثة $phone والرسالة جاهزة. اضغط Ctrl+V داخل المحادثة لإرفاق الفاتورة PDF ثم Enter للإرسال.'
+              : 'فُتح واتساب ويب على محادثة $phone والرسالة جاهزة. اسحب ملف PDF الظاهر في المجلد إلى المحادثة ثم اضغط إرسال.';
+          _pdfError = null;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _pdfError = 'تعذّر فتح واتساب. تأكد من وجود متصفح على الجهاز.');
+      if (mounted) setState(() => _pdfError = 'تعذّر فتح واتساب ويب. تأكد من وجود متصفح على الجهاز.');
     }
   }
 

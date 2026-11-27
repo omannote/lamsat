@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/money.dart';
@@ -387,7 +388,30 @@ class ReceiptPrinter {
 
   /// يفتح ملفًا أو رابطًا بالتطبيق الافتراضي في Windows (عارض PDF أو المتصفح).
   static Future<void> openFile(String path) => _shellOpen(path);
-  static Future<void> openUrl(String url) => _shellOpen(url);
+  /// يفتح رابطًا في المتصفح الافتراضي. الروابط الطويلة ذات الرموز (% و &) لا تمر سليمة عبر rundll32،
+  /// فيُستخدم ShellExecute عبر url_launcher، ثم PowerShell كبديل.
+  static Future<void> openUrl(String url) async {
+    try {
+      if (await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)) return;
+    } catch (_) {}
+    if (Platform.isWindows) {
+      final r = await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', "Start-Process '${url.replaceAll("'", '%27')}'"]);
+      if (r.exitCode != 0) throw PrintFailure('تعذّر فتح المتصفح.');
+    } else {
+      await _shellOpen(url);
+    }
+  }
+
+  /// ينسخ الملف نفسه إلى الحافظة (لا نصّه) ليُلصق في محادثة واتساب ويب بـ Ctrl+V. يعيد false إن تعذّر.
+  static Future<bool> copyFileToClipboard(String path) async {
+    if (!Platform.isWindows) return false;
+    try {
+      final r = await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', "Set-Clipboard -LiteralPath '${path.replaceAll("'", "''")}'"]);
+      return r.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
   static Future<void> _shellOpen(String target) async {
     if (Platform.isWindows) {
       await Process.start('rundll32', ['url.dll,FileProtocolHandler', target]);
@@ -404,7 +428,8 @@ class ReceiptPrinter {
     return (d.length >= 10 && d.length <= 15) ? d : null;
   }
 
-  /// رابط محادثة واتساب مع العميل برسالة جاهزة (بلا ربط API: يُفتح في واتساب المحل على هذا الجهاز).
+  /// رابط محادثة واتساب ويب مع العميل برسالة جاهزة (بلا ربط API: يُفتح في حساب المحل المفتوح على هذا الجهاز).
+  /// الرسالة تذكر بنود الضمان ومدتها إن وُجدت.
   static String whatsappUrl(Map<String, dynamic> inv, String phone) {
     final branch = (inv['branch'] as Map).cast<String, dynamic>();
     final customer = inv['customer'] as Map?;
@@ -413,9 +438,11 @@ class ReceiptPrinter {
       'شكرًا لزيارتكم ${branch['receipt_header_ar'] ?? branch['name_ar']}.',
       'فاتورتكم رقم ${inv['invoice_no']} بتاريخ ${_when(inv)}',
       'الإجمالي: ${formatOmr((inv['total_baisa'] as num).toInt())} ر.ع',
+      for (final w in ((inv['warranties'] as List?) ?? const []).cast<Map>())
+        'ضمان ${w['product_name']}: ${w['months']} شهرًا حتى ${w['expires_on']} (رقم ${w['warranty_no']})',
       if (branch['phone'] != null) 'للاستفسار: ${branch['phone']}',
     ].join('\n');
-    return 'https://wa.me/$phone?text=${Uri.encodeComponent(text)}';
+    return 'https://web.whatsapp.com/send?phone=$phone&text=${Uri.encodeComponent(text)}';
   }
 
   /// يفتح مجلد الملف في مستكشف Windows مع تحديده.

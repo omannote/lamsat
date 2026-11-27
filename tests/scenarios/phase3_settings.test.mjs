@@ -181,3 +181,10 @@ test('الضمان، ملف العميل، تصنيف المصروفات، ال�
   const m = await db.sql(`select role_code, max_discount_bp from memberships where user_id=$1`, [ID.cashierTnt]);
   assert.deepEqual(m.map((x) => [x.role_code, x.max_discount_bp]), [['branch_manager', 1500]]);
 });
+
+test('مدير الفرع يضبط ضريبة فرعه فقط، والكاشير لا يضبطها', async () => {
+  const r = await db.rpc(ID.manager, 'update_branch_settings', [ID.tyr, { tax_enabled: true, tax_rate_bp: 500, prices_include_tax: true }]);
+  assert.deepEqual([r.tax_enabled, r.tax_rate_bp], [true, 500]);
+  await expectCode(db.rpc(ID.manager, 'update_branch_settings', [ID.tnt, { tax_enabled: true }]), 'FORBIDDEN');
+  await expectCode(db.rpc(ID.cashierTyr, 'update_branch_settings', [ID.tyr, { tax_enabled: false }]), 'FORBIDDEN');
+});
