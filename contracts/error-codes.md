@@ -44,6 +44,9 @@
 | `total_changed` | إعدادات الضريبة تغيّرت. لم يُحفظ شيء | يحدّث الإعدادات ويعرض الإجمالي الجديد |
 | `BELOW_MIN_PRICE` | الخصم ينزل بسعر الوحدة تحت أدنى سعر للكاشير | التفاصيل: `line_no`, `min_price_baisa` |
 | `SUPPLIER_REQUIRED` | شراء آجل بلا مورّد | |
+| `CANNOT_CHANGE_SELF` | المالك يحاول نزع دوره أو إيقاف حسابه | |
+| `BRANCH_REQUIRED` | كاشير أو مدير فرع بلا فرع | |
+| `USERNAME_EXISTS` | اسم المستخدم مستخدَم (من دالة `admin-users`) | |
 | `CREDIT_REQUIRES_CUSTOMER` | بيع أو مرتجع آجل على فاتورة بلا عميل | اربط العميل أولًا |
 | `AMOUNT_EXCEEDS_BALANCE` | تحصيل أكبر من رصيد العميل الآجل | التفاصيل: `balance_baisa` |
 
