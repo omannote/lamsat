@@ -65,6 +65,11 @@ void main() {
     expect([s!.cash, s.card, s.change], [0, 35500, 0]);
     (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 40000, tenderedBaisa: null);
     expect(s, isNull);
+    // تحويل + آجل + نقدي
+    (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 0, transferBaisa: 10000, creditBaisa: 20000, tenderedBaisa: 6000);
+    expect([s!.cash, s.transfer, s.credit, s.change], [5500, 10000, 20000, 500]);
+    (s, e) = PaymentSplit.compute(total: 35500, cardBaisa: 20000, transferBaisa: 10000, creditBaisa: 10000, tenderedBaisa: null);
+    expect(s, isNull);
   });
 
   test('المسودة تُحفظ وتُستعاد بالكميات والخصم والعميل', () {

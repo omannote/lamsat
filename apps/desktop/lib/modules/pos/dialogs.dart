@@ -51,7 +51,8 @@ Future<CartChoice> confirmDiscardCart(BuildContext context) async =>
 class LineEditDialog extends StatefulWidget {
   final CartLine line;
   final int maxDiscountBp;
-  const LineEditDialog({super.key, required this.line, required this.maxDiscountBp});
+  final bool focusDiscount; // F5: يبدأ المؤشر في حقل الخصم
+  const LineEditDialog({super.key, required this.line, required this.maxDiscountBp, this.focusDiscount = false});
   @override
   State<LineEditDialog> createState() => _LineEditState();
 }
@@ -66,6 +67,12 @@ class _LineEditState extends State<LineEditDialog> {
   void initState() {
     super.initState();
     _qty.selection = TextSelection(baseOffset: 0, extentOffset: _qty.text.length);
+    if (widget.focusDiscount && widget.maxDiscountBp > 0) {
+      _disc.selection = TextSelection(baseOffset: 0, extentOffset: _disc.text.length);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _discFocus.requestFocus();
+      });
+    }
   }
 
   @override
@@ -142,24 +149,26 @@ class _LineEditState extends State<LineEditDialog> {
 class SaleDoneDialog extends StatefulWidget {
   final Map<String, dynamic> invoice;
   final bool reprint;
-  const SaleDoneDialog({super.key, required this.invoice, this.reprint = false});
+  final bool autoPrint; // false = «تأكيد بدون طباعة»؛ تبقى الطباعة متاحة من الأزرار
+  const SaleDoneDialog({super.key, required this.invoice, this.reprint = false, this.autoPrint = true});
   @override
   State<SaleDoneDialog> createState() => _SaleDoneState();
 }
 
 class _SaleDoneState extends State<SaleDoneDialog> {
-  bool _printing = true;
+  late bool _printing = widget.autoPrint;
+  bool _attempted = false; // هل أُرسلت للطابعة مرة على الأقل
   String? _printError;
   String? _pdfNote, _pdfError;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _print(widget.reprint));
+    if (widget.autoPrint) Future.microtask(() => _print(widget.reprint));
   }
 
   Future<void> _print(bool reprint) async {
-    setState(() { _printing = true; _printError = null; });
+    setState(() { _printing = true; _printError = null; _attempted = true; });
     try {
       await ReceiptPrinter.printInvoice(widget.invoice, reprint: reprint);
     } on PrintFailure catch (e) {
@@ -208,7 +217,7 @@ class _SaleDoneState extends State<SaleDoneDialog> {
     final change = (inv['change_baisa'] as num).toInt();
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => _print(true),
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => _print(widget.reprint || _attempted),
         const SingleActivator(LogicalKeyboardKey.keyO, control: true): _viewPdf,
         const SingleActivator(LogicalKeyboardKey.keyW, control: true): _whatsapp,
       },
@@ -228,6 +237,8 @@ class _SaleDoneState extends State<SaleDoneDialog> {
               const Text('جارٍ الطباعة…', textAlign: TextAlign.center)
             else if (_printError != null)
               Text('الفاتورة معتمدة ومحفوظة، لكن تعذّرت الطباعة:\n$_printError', textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad, fontSize: 16))
+            else if (!_attempted)
+              const Text('اعتُمدت بدون طباعة. للطباعة اضغط Ctrl+P.', textAlign: TextAlign.center, style: TextStyle(color: Brand.muted))
             else
               const Text('أُرسلت الفاتورة إلى الطابعة.', textAlign: TextAlign.center, style: TextStyle(color: Brand.ok)),
             if (_pdfNote != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_pdfNote!, textAlign: TextAlign.center, style: const TextStyle(color: Brand.ok, fontSize: 14))),
@@ -237,7 +248,7 @@ class _SaleDoneState extends State<SaleDoneDialog> {
         actions: [
           OutlinedButton(onPressed: _whatsapp, child: const Text('واتساب للعميل (Ctrl+W)')),
           OutlinedButton(onPressed: _viewPdf, child: const Text('عرض PDF (Ctrl+O)')),
-          OutlinedButton(onPressed: _printing ? null : () => _print(true), child: const Text('إعادة الطباعة (Ctrl+P)')),
+          OutlinedButton(onPressed: _printing ? null : () => _print(widget.reprint || _attempted), child: Text(_attempted ? 'إعادة الطباعة (Ctrl+P)' : 'طباعة (Ctrl+P)')),
           FilledButton(autofocus: true, onPressed: () => Navigator.pop(context), child: Text(widget.reprint ? 'إغلاق (Enter)' : 'فاتورة جديدة (Enter)')),
         ],
       ),

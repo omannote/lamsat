@@ -10,12 +10,15 @@ interface State {
 }
 
 /** المرتجع الجزئي أو الكلي وإلغاء الفاتورة، مع معاينة الأثر قبل التنفيذ وسجل المرتجعات السابقة. */
+type Method = 'cash' | 'card' | 'transfer' | 'credit';
+const METHOD_LABEL: Record<string, string> = { cash: 'نقدي', card: 'بطاقة', transfer: 'تحويل بنكي', credit: 'رصيد للعميل' };
+
 export function RefundPanel({ invoiceId, canRefund, canVoid, onDone }: { invoiceId: string; canRefund: boolean; canVoid: boolean; onDone: () => void }) {
   const [st, setSt] = useState<State | null>(null);
   const [open, setOpen] = useState(false);
   const [qty, setQty] = useState<Record<number, string>>({});
   const [restock, setRestock] = useState<Record<number, boolean>>({});
-  const [method, setMethod] = useState<'cash' | 'card'>('cash');
+  const [method, setMethod] = useState<Method>('cash');
   const [session, setSession] = useState('');
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -58,7 +61,7 @@ export function RefundPanel({ invoiceId, canRefund, canVoid, onDone }: { invoice
       {msg && <div className={`notice ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</div>}
       {st.refunds.length > 0 && (
         <ul className="audit">{st.refunds.map((f) => (
-          <li key={f.id}><span><span dir="ltr" className="mono">{f.refund_no}</span> — {f.kind === 'void' ? 'إلغاء' : 'مرتجع'} {f.method === 'cash' ? 'نقدي' : 'بطاقة'} — {f.reason} — {f.created_by_name}</span>
+          <li key={f.id}><span><span dir="ltr" className="mono">{f.refund_no}</span> — {f.kind === 'void' ? 'إلغاء' : 'مرتجع'} {METHOD_LABEL[f.method] ?? f.method} — {f.reason} — {f.created_by_name}</span>
             <span><strong dir="ltr">{formatOmr(f.amount_baisa)}</strong> <span className="muted">{formatDateTime(f.created_at)}</span></span></li>))}</ul>)}
       {st.refunds.length === 0 && !open && <p className="muted small">لا توجد مرتجعات على هذه الفاتورة.</p>}
       {open && (
@@ -73,14 +76,14 @@ export function RefundPanel({ invoiceId, canRefund, canVoid, onDone }: { invoice
               </tr>))}</tbody>
           </table>
           <div className="form-grid">
-            <label>طريقة رد المبلغ<select value={method} onChange={(e) => setMethod(e.target.value as 'cash' | 'card')}><option value="cash">نقدي من الدرج</option><option value="card">بطاقة (يُرد على جهاز البطاقة)</option></select></label>
+            <label>طريقة رد المبلغ<select value={method} onChange={(e) => setMethod(e.target.value as Method)}><option value="cash">نقدي من الدرج</option><option value="card">بطاقة (يُرد على جهاز البطاقة)</option><option value="transfer">تحويل بنكي (يُرد بتحويل)</option><option value="credit">رصيد للعميل (يُخصم من حسابه الآجل)</option></select></label>
             {method === 'cash' && <label>الوردية التي يخرج منها النقد<select value={session} onChange={(e) => setSession(e.target.value)}>
               {st.open_sessions.length === 0 && <option value="">لا توجد وردية مفتوحة</option>}
               {st.open_sessions.map((s) => <option key={s.id} value={s.id}>{s.device_name} — {s.opened_by_name}</option>)}</select></label>}
             <label className="span-2">السبب (إلزامي)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
           </div>
           <div className="notice">
-            <strong>معاينة الأثر:</strong> يُرد للعميل نحو <strong dir="ltr">{formatOmr(estimate)}</strong> ر.ع {method === 'cash' ? 'نقدًا ويُخصم من النقد المتوقع للوردية' : 'على البطاقة'}،
+            <strong>معاينة الأثر:</strong> يُرد للعميل نحو <strong dir="ltr">{formatOmr(estimate)}</strong> ر.ع {method === 'cash' ? 'نقدًا ويُخصم من النقد المتوقع للوردية' : method === 'card' ? 'على البطاقة' : method === 'transfer' ? 'بتحويل بنكي' : 'رصيدًا في حسابه الآجل (الفاتورة يجب أن تكون مرتبطة بعميل)'}،
             ويعود للمخزون {backToStock} وحدة، ويُسجَّل قيد عكسي في اليوم المحاسبي المفتوح مع بقاء الفاتورة الأصلية وإقفالها التاريخي كما هما. المبلغ النهائي يحسبه الخادم.
           </div>
           <div className="actions">

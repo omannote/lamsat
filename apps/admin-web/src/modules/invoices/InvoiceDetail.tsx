@@ -78,7 +78,7 @@ export function InvoiceDetail({ ctx, id }: { ctx: Ctx; id: string }) {
             <dt className="strong">الإجمالي</dt><dd className="strong">{formatOmr(inv.total_baisa)}</dd>
             {inv.payments.map((p, i) => (
               <div key={i} className="pair">
-                <dt>{p.method === 'cash' ? 'نقدي' : `بطاقة${p.card_reference ? ` (${p.card_reference})` : ''}`}</dt><dd>{formatOmr(p.amount_baisa)}</dd>
+                <dt>{p.method === 'cash' ? 'نقدي' : p.method === 'credit' ? 'آجل على الحساب' : `${p.method === 'transfer' ? 'تحويل بنكي' : 'بطاقة'}${p.card_reference ? ` (${p.card_reference})` : ''}`}</dt><dd>{formatOmr(p.amount_baisa)}</dd>
               </div>
             ))}
             {inv.change_baisa > 0 && <><dt>الباقي للعميل</dt><dd>{formatOmr(inv.change_baisa)}</dd></>}

@@ -61,11 +61,16 @@ class ReceiptPrinter {
     return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
   }
 
-  static String _payLabel(Map p) => p['method'] == 'cash'
-      ? 'نقدي'
-      : p['method'] == 'deposit'
-          ? 'عربون مسدَّد'
-          : 'بطاقة${p['card_reference'] != null ? ' (${p['card_reference']})' : ''}';
+  static String _payLabel(Map p) {
+    final ref = p['card_reference'] != null ? ' (${p['card_reference']})' : '';
+    return switch (p['method']) {
+      'cash' => 'نقدي',
+      'deposit' => 'عربون مسدَّد',
+      'transfer' => 'تحويل بنكي$ref',
+      'credit' => 'آجل على الحساب',
+      _ => 'بطاقة$ref',
+    };
+  }
 
   /// يبني PDF الفاتورة من تمثيلها كما أعاده الخادم (approve_sale / get_invoice) بالشكل المناسب لنوع الطابعة.
   static Future<Uint8List> buildPdf(Map<String, dynamic> inv, {required PrinterKind kind, bool reprint = false}) async {

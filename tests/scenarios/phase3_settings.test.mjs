@@ -51,3 +51,33 @@ test('كل موظف يفتح ورديته على الجهاز نفسه، ويب�
   await db.rpc(ID.cashierTyr, 'close_cash_session', [uuid(), mine.id, 1000, null]);
   assert.equal((await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session.id, m, 'إقفال وردية لا يمس وردية الآخر');
 });
+
+test('تحويل بنكي وآجل: الآجل يتطلب عميلًا، يُرحَّل للذمم، ويُحصَّل لاحقًا في درج الوردية', async () => {
+  const s = (await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session.id;
+  const sale = (payments, extra = {}) => ({ cash_session_id: s, lines: [{ product_id: ID.install, qty: 10, unit_price_baisa: 1000, discount_baisa: 0 }],
+    payments, expected_total_baisa: 10000, ...extra });
+  await expectCode(db.rpc(ID.manager, 'approve_sale', [uuid(), sale([{ method: 'credit', amount_baisa: 10000 }])]), 'CREDIT_REQUIRES_CUSTOMER');
+  const cust = (await db.rpc(ID.manager, 'save_customer', [{ branch_id: ID.tyr, name: 'عميل آجل', phone: '96890000077' }])).customer.id;
+  const before = (await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa;
+  const r = await db.rpc(ID.manager, 'approve_sale', [uuid(), sale([{ method: 'cash', amount_baisa: 2000 }, { method: 'transfer', amount_baisa: 3000, card_reference: 'TRX-1' },
+    { method: 'credit', amount_baisa: 5000 }], { customer_id: cust })]);
+  assert.equal(r.status, 'approved');
+  const sum = await db.rpc(ID.manager, 'cash_session_summary', [s]);
+  assert.deepEqual([sum.expected_cash_baisa - before, sum.transfer_baisa, sum.credit_baisa], [2000, 3000, 5000]);
+  assert.equal((await db.rpc(ID.manager, 'customer_account', [cust])).balance_baisa, 5000);
+  const j = await db.sql(`select a.system_key k, l.debit_baisa d from journal_lines l join accounts a on a.id=l.account_id join journal_entries e on e.id=l.entry_id
+    where e.source_id=$1 and l.debit_baisa>0 and a.system_key in ('bank_transfer_clearing','accounts_receivable') order by 1`, [r.invoice.id]);
+  assert.deepEqual(j.map((x) => [x.k, Number(x.d)]), [['accounts_receivable', 5000], ['bank_transfer_clearing', 3000]]);
+
+  await expectCode(db.rpc(ID.manager, 'collect_customer_payment', [uuid(), s, cust, 'cash', 6000, null]), 'AMOUNT_EXCEEDS_BALANCE');
+  const op = uuid();
+  const c1 = await db.rpc(ID.manager, 'collect_customer_payment', [op, s, cust, 'cash', 4000, null]);
+  const c2 = await db.rpc(ID.manager, 'collect_customer_payment', [op, s, cust, 'cash', 4000, null]);
+  assert.deepEqual([c1.balance_baisa, c2.replayed], [1000, true], 'إعادة الطلب لا تحصّل مرتين');
+  assert.equal((await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa - before, 6000);
+  assert.equal((await db.rpc(ID.manager, 'customer_account', [cust])).balance_baisa, 1000);
+  // إلغاء الفاتورة «رصيدًا للعميل»: لا نقد يخرج من الدرج، ويصير للعميل رصيد دائن
+  await db.rpc(ID.manager, 'refund_invoice', [uuid(), { invoice_id: r.invoice.id, kind: 'void', method: 'credit', reason: 'إلغاء تجريبي' }]);
+  assert.equal((await db.rpc(ID.manager, 'customer_account', [cust])).balance_baisa, -9000);
+  assert.equal((await db.rpc(ID.manager, 'cash_session_summary', [s])).expected_cash_baisa - before, 6000);
+});

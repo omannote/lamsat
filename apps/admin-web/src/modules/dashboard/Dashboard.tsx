@@ -28,6 +28,8 @@ export function Dashboard({ ctx }: { ctx: Ctx }) {
     ['عدد الفواتير', String(data.invoice_count)],
     ['مدفوعات نقدية', formatOmr(data.cash_baisa)],
     ['مدفوعات بطاقة', formatOmr(data.card_baisa)],
+    ['تحويل بنكي', formatOmr(data.transfer_baisa ?? 0)],
+    ['مبيعات آجلة', formatOmr(data.credit_baisa ?? 0)],
     ['الضريبة', formatOmr(data.tax_baisa)],
     ['الخصومات', formatOmr(data.discount_baisa)],
     ['المرتجعات', formatOmr(data.refunds_baisa ?? 0)],

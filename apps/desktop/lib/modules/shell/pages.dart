@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/api.dart';
 import '../../core/money.dart';
@@ -212,6 +213,7 @@ class _CustomersState extends State<CustomersPage> {
   List<Map<String, dynamic>>? _invoices;
   Map<String, dynamic>? _selected;
   String? _error;
+  int? _balance; // رصيد العميل الآجل
 
   @override
   void initState() {
@@ -232,7 +234,11 @@ class _CustomersState extends State<CustomersPage> {
   }
 
   Future<void> _select(Map<String, dynamic> c) async {
-    setState(() { _selected = c; _invoices = null; });
+    setState(() { _selected = c; _invoices = null; _balance = null; });
+    try {
+      final a = (await Api.rpc('customer_account', {'p_customer_id': c['id']}) as Map).cast<String, dynamic>();
+      if (mounted && _selected?['id'] == c['id']) setState(() => _balance = (a['balance_baisa'] as num).toInt());
+    } catch (_) {}
     if (c['phone'] == null) {
       setState(() => _invoices = []);
       return;
@@ -272,7 +278,31 @@ class _CustomersState extends State<CustomersPage> {
                 : _invoices == null
                     ? const Center(child: CircularProgressIndicator())
                     : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                        Padding(padding: const EdgeInsets.all(14), child: Text('${_selected!['name']} · ${_selected!['phone'] ?? 'بلا هاتف'}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(children: [
+                            Expanded(child: Text('${_selected!['name']} · ${_selected!['phone'] ?? 'بلا هاتف'}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                            if (_balance != null)
+                              Text('الرصيد الآجل: ${formatOmr(_balance!)} ر.ع',
+                                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _balance! > 0 ? Brand.bad : Brand.ok)),
+                            if ((_balance ?? 0) > 0 && widget.ctx.sessionId != null) ...[
+                              const SizedBox(width: 12),
+                              FilledButton(
+                                onPressed: () async {
+                                  final c = _selected!;
+                                  final done = await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (_) => CollectDialog(sessionId: widget.ctx.sessionId!, customerId: c['id'] as String, customerName: '${c['name']}', balanceBaisa: _balance!));
+                                  if (done == true && mounted) await _select(c);
+                                },
+                                child: const Text('تحصيل'),
+                              ),
+                            ],
+                          ]),
+                        ),
+                        if ((_balance ?? 0) > 0 && widget.ctx.sessionId == null)
+                          const Padding(padding: EdgeInsets.only(right: 14, left: 14, bottom: 8), child: Text('التحصيل يتطلب وردية مفتوحة لحسابك.', style: TextStyle(color: Brand.muted))),
                         _head([('التاريخ', 2), ('الفاتورة', 3), ('اللوحة', 2), ('المبلغ', 2)]),
                         Expanded(
                           child: _invoices!.isEmpty
@@ -293,6 +323,101 @@ class _CustomersState extends State<CustomersPage> {
                       ]),
           ),
         ]),
+      );
+}
+
+/// تحصيل من رصيد العميل الآجل: نقدي (يدخل درج الوردية) أو بطاقة أو تحويل بنكي.
+class CollectDialog extends StatefulWidget {
+  final String sessionId, customerId, customerName;
+  final int balanceBaisa;
+  const CollectDialog({super.key, required this.sessionId, required this.customerId, required this.customerName, required this.balanceBaisa});
+  @override
+  State<CollectDialog> createState() => _CollectState();
+}
+
+class _CollectState extends State<CollectDialog> {
+  late final _amount = TextEditingController(text: formatOmr(widget.balanceBaisa));
+  final _ref = TextEditingController();
+  String _method = 'cash';
+  String _opId = const Uuid().v4(); // يُعاد استخدامه عند إعادة المحاولة حتى لا يُحصَّل مرتين
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount.selection = TextSelection(baseOffset: 0, extentOffset: _amount.text.length);
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _ref.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = parseOmr(_amount.text);
+    if (amount == null || amount <= 0) {
+      setState(() => _error = 'أدخل مبلغًا صحيحًا.');
+      return;
+    }
+    if (amount > widget.balanceBaisa) {
+      setState(() => _error = 'المبلغ أكبر من الرصيد (${formatOmr(widget.balanceBaisa)}).');
+      return;
+    }
+    setState(() { _busy = true; _error = null; });
+    try {
+      await Api.rpc('collect_customer_payment', {
+        'p_operation_id': _opId, 'p_cash_session_id': widget.sessionId, 'p_customer_id': widget.customerId,
+        'p_method': _method, 'p_amount_baisa': amount, 'p_reference': _ref.text.trim().isEmpty ? null : _ref.text.trim(),
+      });
+      if (mounted) Navigator.pop(context, true);
+      return;
+    } on BusinessError catch (e) {
+      _opId = const Uuid().v4();
+      _error = errorMessage(e.code);
+    } on NoResponseError {
+      _error = 'انقطع الاتصال. اضغط «تحصيل» مجددًا للتحقق؛ لن يُسجَّل المبلغ مرتين.';
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('تحصيل من ${widget.customerName}'),
+        content: SizedBox(
+          width: 440,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('الرصيد الآجل: ${formatOmr(widget.balanceBaisa)} ر.ع', style: const TextStyle(color: Brand.muted)),
+            const SizedBox(height: 12),
+            SegmentedButton<String>(
+              segments: const [ButtonSegment(value: 'cash', label: Text('نقدي')), ButtonSegment(value: 'card', label: Text('بطاقة')), ButtonSegment(value: 'transfer', label: Text('تحويل بنكي'))],
+              selected: {_method},
+              onSelectionChanged: (s) => setState(() => _method = s.first),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _amount,
+              autofocus: true,
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+              decoration: const InputDecoration(labelText: 'المبلغ المحصَّل (ر.ع)'),
+              onSubmitted: (_) => _save(),
+            ),
+            if (_method != 'cash')
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: TextField(controller: _ref, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'المرجع (اختياري)'), onSubmitted: (_) => _save()),
+              ),
+            if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Brand.bad))),
+          ]),
+        ),
+        actions: [
+          OutlinedButton(onPressed: _busy ? null : () => Navigator.pop(context, false), child: const Text('رجوع (Esc)')),
+          FilledButton(onPressed: _busy ? null : _save, child: Text(_busy ? 'جارٍ التسجيل…' : 'تحصيل (Enter)')),
+        ],
       );
 }
 
@@ -383,6 +508,8 @@ class _DayState extends State<DayPage> {
                         Wrap(spacing: 12, runSpacing: 12, children: [
                           _tile('مبيعات نقدية', formatOmr(n('cash_sales_baisa'))),
                           _tile('مبيعات بطاقة (خارج الدرج)', formatOmr(n('card_baisa'))),
+                          _tile('تحويل بنكي (خارج الدرج)', formatOmr(n('transfer_baisa'))),
+                          _tile('آجل (على حساب العملاء)', formatOmr(n('credit_baisa'))),
                           _tile('إجمالي المبيعات', formatOmr(n('total_sales_baisa'))),
                           _tile('عدد الفواتير', '${n('invoice_count')}'),
                         ]),
@@ -474,6 +601,8 @@ class _ReportsState extends State<ReportsPage> {
                         tile('عدد الفواتير', '${n('invoice_count')}'),
                         tile('نقدي', formatOmr(n('cash_baisa'))),
                         tile('بطاقة', formatOmr(n('card_baisa'))),
+                        tile('تحويل بنكي', formatOmr(n('transfer_baisa'))),
+                        tile('آجل', formatOmr(n('credit_baisa'))),
                         tile('ضريبة القيمة المضافة', formatOmr(n('tax_baisa'))),
                         tile('المرتجعات', formatOmr(n('refunds_baisa'))),
                         tile('الخصومات', formatOmr(n('discount_baisa'))),

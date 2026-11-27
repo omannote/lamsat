@@ -82,6 +82,8 @@ String errorMessage(String code) {
     'SESSION_NOT_FOUND': 'الوردية غير موجودة.',
     'SESSION_CLOSED': 'الوردية مقفلة. افتح وردية جديدة.',
     'SESSION_NOT_YOURS': 'هذه الوردية مفتوحة باسم مستخدم آخر.',
+    'CREDIT_REQUIRES_CUSTOMER': 'البيع الآجل يتطلب عميلًا مربوطًا بالفاتورة.',
+    'AMOUNT_EXCEEDS_BALANCE': 'المبلغ أكبر من رصيد العميل الآجل.',
     'BUSINESS_DAY_CLOSED': 'اليوم المحاسبي مقفل. راجع مدير الفرع.',
     'EMPTY_CART': 'السلة فارغة.',
     'PRODUCT_NOT_FOUND': 'صنف في السلة لم يعد متاحًا. احذفه ثم أعد المحاولة.',

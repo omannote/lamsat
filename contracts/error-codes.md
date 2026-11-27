@@ -51,3 +51,5 @@
 - `cancel_operation(id, session)` قبل التخلي عن عملية غير مؤكدة: يحجز المعرّف، أو يعيد الفاتورة إن كانت اعتُمدت.
 
 عينات حقيقية (مولّدة من قاعدة الاختبار بـ `tests/tools/gen_samples.mjs`) في `contracts/samples/`.
+| `CREDIT_REQUIRES_CUSTOMER` | بيع أو مرتجع آجل على فاتورة بلا عميل | اربط العميل أولًا |
+| `AMOUNT_EXCEEDS_BALANCE` | تحصيل أكبر من رصيد العميل الآجل | التفاصيل: `balance_baisa` |

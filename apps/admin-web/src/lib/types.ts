@@ -24,7 +24,7 @@ export interface Invoice {
   subtotal_baisa: number; discount_baisa: number; net_baisa: number; tax_baisa: number; total_baisa: number;
   paid_baisa: number; change_baisa: number; note: string | null; print_count: number;
   lines: InvoiceLine[];
-  payments: { method: 'cash' | 'card'; amount_baisa: number; tendered_baisa: number | null; card_reference: string | null }[];
+  payments: { method: 'cash' | 'card' | 'transfer' | 'credit'; amount_baisa: number; tendered_baisa: number | null; card_reference: string | null }[];
 }
 
 export interface CashSessionRow {
@@ -37,7 +37,7 @@ export interface CashSessionRow {
 
 export interface Summary {
   invoice_count: number; net_sales_baisa: number; tax_baisa: number; total_baisa: number; discount_baisa: number;
-  cash_baisa: number; card_baisa: number; gross_profit_baisa: number | null; refunds_baisa?: number;
+  cash_baisa: number; card_baisa: number; transfer_baisa?: number; credit_baisa?: number; gross_profit_baisa: number | null; refunds_baisa?: number;
 }
 
 export const can = (ctx: Ctx, perm: string, branchId?: string | null) =>

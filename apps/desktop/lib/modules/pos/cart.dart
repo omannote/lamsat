@@ -115,7 +115,7 @@ class Cart {
   /// حمولة approve_sale. تُحفظ كما هي ويُعاد إرسالها حرفيًا عند إعادة المحاولة.
   Map<String, dynamic> toPayload({
     required String cashSessionId, required TaxSettings tax, required int cashBaisa, required int cardBaisa,
-    int? cashTenderedBaisa, String? cardReference,
+    int transferBaisa = 0, int creditBaisa = 0, int? cashTenderedBaisa, String? cardReference,
   }) =>
       {
         'cash_session_id': cashSessionId,
@@ -133,6 +133,8 @@ class Cart {
         'payments': [
           if (cashBaisa > 0) {'method': 'cash', 'amount_baisa': cashBaisa},
           if (cardBaisa > 0) {'method': 'card', 'amount_baisa': cardBaisa, if ((cardReference ?? '').isNotEmpty) 'card_reference': cardReference},
+          if (transferBaisa > 0) {'method': 'transfer', 'amount_baisa': transferBaisa, if ((cardReference ?? '').isNotEmpty) 'card_reference': cardReference},
+          if (creditBaisa > 0) {'method': 'credit', 'amount_baisa': creditBaisa},
         ],
         if (cashBaisa > 0) 'cash_tendered_baisa': cashTenderedBaisa ?? cashBaisa,
         'expected_total_baisa': total(tax),
@@ -141,15 +143,19 @@ class Cart {
 
 /// توزيع الدفع من مدخلات نافذة الدفع. يعيد رسالة خطأ أو التوزيع.
 class PaymentSplit {
-  final int cash, card, tendered, change;
-  const PaymentSplit(this.cash, this.card, this.tendered, this.change);
+  final int cash, card, tendered, change, transfer, credit;
+  const PaymentSplit(this.cash, this.card, this.tendered, this.change, {this.transfer = 0, this.credit = 0});
 
-  static (PaymentSplit?, String?) compute({required int total, required int cardBaisa, required int? tenderedBaisa}) {
-    if (cardBaisa < 0 || cardBaisa > total) return (null, 'مبلغ البطاقة يجب ألا يتجاوز الإجمالي.');
-    final cashDue = total - cardBaisa;
-    if (cashDue == 0) return (PaymentSplit(0, cardBaisa, 0, 0), null);
+  /// البطاقة والتحويل والآجل مبالغ محددة؛ الباقي نقدي، والزائد من النقد المستلم يُرد للعميل.
+  static (PaymentSplit?, String?) compute(
+      {required int total, required int cardBaisa, required int? tenderedBaisa, int transferBaisa = 0, int creditBaisa = 0}) {
+    if (cardBaisa < 0 || transferBaisa < 0 || creditBaisa < 0) return (null, 'المبالغ لا تكون سالبة.');
+    final nonCash = cardBaisa + transferBaisa + creditBaisa;
+    if (nonCash > total) return (null, 'مجموع البطاقة والتحويل والآجل يجب ألا يتجاوز الإجمالي.');
+    final cashDue = total - nonCash;
+    if (cashDue == 0) return (PaymentSplit(0, cardBaisa, 0, 0, transfer: transferBaisa, credit: creditBaisa), null);
     final tendered = tenderedBaisa ?? cashDue;
     if (tendered < cashDue) return (null, 'المبلغ النقدي المستلم أقل من المطلوب (${formatOmr(cashDue)}).');
-    return (PaymentSplit(cashDue, cardBaisa, tendered, tendered - cashDue), null);
+    return (PaymentSplit(cashDue, cardBaisa, tendered, tendered - cashDue, transfer: transferBaisa, credit: creditBaisa), null);
   }
 }

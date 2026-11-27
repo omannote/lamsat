@@ -20,8 +20,8 @@ import 'drafts_dialog.dart';
 import 'payment_dialog.dart';
 import 'pending_operation.dart';
 
-/// شاشة نقطة البيع. كل المسار يعمل من لوحة المفاتيح:
-/// F1 فاتورة جديدة · F2 بحث · F3 عميل · F4 كمية · F8 دفع · F9 اعتماد (داخل نافذة الدفع) · Esc رجوع.
+/// شاشة نقطة البيع بمفاتيح التصميم: F1 فاتورة جديدة · F2 بحث صنف · F3 عميل/لوحة · F4 كمية · F5 خصم · F6 تعليق
+/// F7 استرجاع · F8 نقدي · F9 بطاقة · F10 حفظ وطباعة · F11 مرتجع · F12 إغلاق اليومية · Esc رجوع.
 class PosScreen extends StatefulWidget {
   final ShiftContext shift;
   final VoidCallback onShiftClosed;
@@ -42,6 +42,7 @@ class _State extends State<PosScreen> {
   bool _searching = false, _dialogOpen = false;
   String? _searchError;
   late TaxSettings _tax = widget.shift.tax;
+  bool _printNext = true; // اختيار «تأكيد بدون طباعة» في نافذة الدفع
 
   ShiftContext get shift => widget.shift;
 
@@ -209,9 +210,13 @@ class _State extends State<PosScreen> {
     _searchFocus.requestFocus();
   }
 
-  Future<void> _editLine() async {
+  Future<void> _editLine({bool discount = false}) async {
     if (_cart.lines.isEmpty) return;
-    await _open<bool>(LineEditDialog(line: _cart.lines[_lineIndex], maxDiscountBp: shift.maxDiscountBp));
+    if (discount && shift.maxDiscountBp <= 0) {
+      await _open<void>(const _MessageDialog('الخصم', 'لا تملك صلاحية الخصم. حدّ الخصم يضبطه المالك لكل مستخدم.'));
+      return;
+    }
+    await _open<bool>(LineEditDialog(line: _cart.lines[_lineIndex], maxDiscountBp: shift.maxDiscountBp, focusDiscount: discount));
   }
 
   Future<void> _pickCustomer() async {
@@ -219,21 +224,28 @@ class _State extends State<PosScreen> {
     if (c != null && mounted) setState(() => _cart.customer = c);
   }
 
-  /// F6: السلة فيها بنود ← حفظها كمسودة. السلة فارغة ← فتح مسودة محفوظة.
+  /// F6 تعليق: حفظ الفاتورة الحالية كفاتورة معلّقة وتفريغ السلة.
   Future<void> _drafts() async {
     if (_dialogOpen) return;
+    if (_cart.isEmpty) return _recall();
+    final sid = await _needShift();
+    if (sid == null) return;
+    final saved = await _open<bool>(SaveDraftDialog(sessionId: sid, cart: _cart, totalBaisa: _cart.total(_tax)), dismissible: false);
+    if (saved == true && mounted) setState(() { _cart.clear(); _lineIndex = 0; });
+  }
+
+  /// F7 استرجاع: فتح فاتورة معلّقة. السلة يجب أن تكون فارغة حتى لا تضيع بنودها.
+  Future<void> _recall() async {
+    if (_dialogOpen) return;
     if (!_cart.isEmpty) {
-      final sid = await _needShift();
-      if (sid == null) return;
-      final saved = await _open<bool>(SaveDraftDialog(sessionId: sid, cart: _cart, totalBaisa: _cart.total(_tax)), dismissible: false);
-      if (saved == true && mounted) setState(() { _cart.clear(); _lineIndex = 0; });
+      await _open<void>(const _MessageDialog('فواتير معلّقة', 'في السلة بنود. علّق الفاتورة الحالية (F6) أو ابدأ فاتورة جديدة (F1) ثم استرجع.'));
       return;
     }
     final payload = await _open<Map<String, dynamic>>(DraftListDialog(branchId: shift.branchId));
     if (payload != null && mounted) setState(() { _cart.loadDraft(payload); _lineIndex = 0; });
   }
 
-  /// F10: مراجعة إقفال الوردية حسب الصلاحية. السلة يجب أن تكون فارغة.
+  /// F12: مراجعة إقفال الوردية حسب الصلاحية. السلة يجب أن تكون فارغة.
   Future<void> _closeShift() async {
     if (_dialogOpen) return;
     if (!shift.permissions.contains('cash.close')) {
@@ -252,17 +264,19 @@ class _State extends State<PosScreen> {
 
   // ───────── الدفع والاعتماد ─────────
 
-  Future<void> _pay() async {
+  Future<void> _pay([PayMethod method = PayMethod.cash]) async {
     if (_cart.isEmpty || _dialogOpen) return;
     final sid = await _needShift();
     if (sid == null || !mounted) return;
-    final pay = await _open<PaymentResult>(PaymentDialog(totalBaisa: _cart.total(_tax)));
+    final pay = await _open<PaymentResult>(PaymentDialog(totalBaisa: _cart.total(_tax), initial: method, customerName: _cart.customer?.name));
     if (pay == null || !mounted) return;
+    _printNext = pay.print;
     // معرّف العملية يُولَّد قبل الإرسال ويُحفظ مع الحمولة؛ إعادة المحاولة تستخدمهما كما هما.
     final opId = const Uuid().v4();
     final payload = _cart.toPayload(
       cashSessionId: sid, tax: _tax, cashBaisa: pay.split.cash, cardBaisa: pay.split.card,
-      cashTenderedBaisa: pay.split.cash > 0 ? pay.split.tendered : null, cardReference: pay.cardReference,
+      transferBaisa: pay.split.transfer, creditBaisa: pay.split.credit,
+      cashTenderedBaisa: pay.split.cash > 0 ? pay.split.tendered : null, cardReference: pay.reference,
     );
     await PendingOperation.save(opId, payload);
     if (!mounted) return;
@@ -295,7 +309,9 @@ class _State extends State<PosScreen> {
     switch (o.status) {
       case ApproveStatus.approved:
         if (fromCart) setState(() { _cart.clear(); _lineIndex = 0; });
-        await _open<void>(SaleDoneDialog(invoice: o.data!), dismissible: false);
+        final auto = fromCart ? _printNext : true;
+        _printNext = true;
+        await _open<void>(SaleDoneDialog(invoice: o.data!, autoPrint: auto), dismissible: false);
       case ApproveStatus.needsConfirm:
         await _confirmServerChange(o.data!);
       case ApproveStatus.error:
@@ -352,14 +368,21 @@ class _State extends State<PosScreen> {
         },
         const SingleActivator(LogicalKeyboardKey.f3): _pickCustomer,
         const SingleActivator(LogicalKeyboardKey.f4): _editLine,
-        const SingleActivator(LogicalKeyboardKey.f5): () {
+        const SingleActivator(LogicalKeyboardKey.f5): () => _editLine(discount: true),
+        const SingleActivator(LogicalKeyboardKey.f6): _drafts,
+        const SingleActivator(LogicalKeyboardKey.f7): _recall,
+        const SingleActivator(LogicalKeyboardKey.f8): () => _pay(PayMethod.cash),
+        const SingleActivator(LogicalKeyboardKey.f9): () => _pay(PayMethod.card),
+        const SingleActivator(LogicalKeyboardKey.f10): () => _pay(PayMethod.cash),
+        const SingleActivator(LogicalKeyboardKey.f11): () => _open<void>(const _MessageDialog(
+            'المرتجع', 'المرتجع وإلغاء الفاتورة ينفذهما مدير الفرع من لوحة الإدارة حاليًا (صفحة الفاتورة). نقلهما إلى هذه الشاشة ضمن العمل القادم.')),
+        const SingleActivator(LogicalKeyboardKey.f12): _closeShift,
+        const SingleActivator(LogicalKeyboardKey.keyH, control: true): () =>
+            _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
+        const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
           if (shift.permissions.contains('cash.movement') && shift.sessionId != null) _open<void>(CashMovementDialog(sessionId: shift.sessionId!), dismissible: false);
         },
-        const SingleActivator(LogicalKeyboardKey.f6): _drafts,
-        const SingleActivator(LogicalKeyboardKey.f7): () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
-        const SingleActivator(LogicalKeyboardKey.f8): _pay,
-        const SingleActivator(LogicalKeyboardKey.f10): _closeShift,
-        const SingleActivator(LogicalKeyboardKey.f12): () => _open<void>(const PrinterSettingsDialog()),
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true, shift: true): () => _open<void>(const PrinterSettingsDialog()),
       },
       child: Scaffold(
         body: Column(children: [
@@ -528,7 +551,7 @@ class _State extends State<PosScreen> {
                 child: FilledButton(
                   focusNode: FocusNode(skipTraversal: true),
                   onPressed: _cart.isEmpty ? null : _pay,
-                  child: const Text('الدفع  (F8)', style: TextStyle(fontSize: 22)),
+                  child: const Text('الدفع  (F10)', style: TextStyle(fontSize: 22)),
                 ),
               ),
             ]),
@@ -544,15 +567,59 @@ class _State extends State<PosScreen> {
         ]),
       );
 
-  Widget _hintBar() => Container(
-        color: Brand.ink2,
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        child: const Text(
-          'F1 جديدة   F2 بحث   F3 عميل   F4 كمية   F5 قبض/صرف   F6 مسودات   Delete حذف سطر   F7 السجل   F8 الدفع   F10 إقفال الوردية   F12 الطابعة   Esc رجوع',
-          style: TextStyle(color: Color(0xFFCFD9DD), fontSize: 14),
-        ),
-      );
+  /// شريط الاختصارات كما في التصميم: كل مفتاح زر يُضغط بالفأرة أيضًا.
+  Widget _hintBar() {
+    Widget key(String k, String label, VoidCallback onTap) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: InkWell(
+            onTap: onTap,
+            canRequestFocus: false,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(color: const Color(0x22FFFFFF), borderRadius: BorderRadius.circular(6)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(k, textDirection: TextDirection.ltr, style: const TextStyle(color: Brand.orange, fontSize: 13, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 6),
+                Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
+              ]),
+            ),
+          ),
+        );
+    return Container(
+      color: Brand.ink2,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          key('F1', 'فاتورة جديدة', _newInvoice),
+          key('F2', 'بحث صنف', () => _searchFocus.requestFocus()),
+          key('F3', 'عميل / لوحة', _pickCustomer),
+          key('F4', 'كمية', _editLine),
+          key('F5', 'خصم', () => _editLine(discount: true)),
+          key('F6', 'تعليق', _drafts),
+          key('F7', 'استرجاع', _recall),
+          key('F8', 'نقدي', () => _pay(PayMethod.cash)),
+          key('F9', 'بطاقة', () => _pay(PayMethod.card)),
+          key('F10', 'حفظ وطباعة', () => _pay(PayMethod.cash)),
+          key('F11', 'مرتجع', () => _open<void>(const _MessageDialog('المرتجع', 'المرتجع ينفذه مدير الفرع من لوحة الإدارة حاليًا.'))),
+          key('F12', 'إغلاق اليومية', _closeShift),
+          key('Ctrl+H', 'سجل الفواتير', () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint')))),
+          key('Ctrl+M', 'مصروف / قبض', () {
+            if (shift.permissions.contains('cash.movement') && shift.sessionId != null) _open<void>(CashMovementDialog(sessionId: shift.sessionId!), dismissible: false);
+          }),
+          key('Del', 'حذف سطر', () {
+            if (_cart.lines.isEmpty) return;
+            setState(() {
+              _cart.lines.removeAt(_lineIndex);
+              _lineIndex = _lineIndex.clamp(0, _cart.lines.isEmpty ? 0 : _cart.lines.length - 1).toInt();
+            });
+          }),
+        ]),
+      ),
+    );
+  }
 }
 
 class _MessageDialog extends StatelessWidget {
