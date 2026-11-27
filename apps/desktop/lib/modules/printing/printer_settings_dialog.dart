@@ -15,6 +15,7 @@ class PrinterSettingsDialog extends StatefulWidget {
 class _State extends State<PrinterSettingsDialog> {
   List<Printer>? _printers;
   String? _selected;
+  PrinterKind _kind = PrinterKind.thermal80;
   String? _message;
   bool _error = false, _busy = false;
 
@@ -28,9 +29,11 @@ class _State extends State<PrinterSettingsDialog> {
     try {
       final list = await ReceiptPrinter.listPrinters();
       final saved = await ReceiptPrinter.savedPrinterName();
+      final kind = await ReceiptPrinter.savedKind();
       if (!mounted) return;
       setState(() {
         _printers = list;
+        _kind = kind;
         _selected = list.any((p) => p.name == saved) ? saved : null;
         if (saved != null && _selected == null) {
           _message = 'الطابعة المحفوظة «$saved» غير موجودة الآن.';
@@ -46,7 +49,7 @@ class _State extends State<PrinterSettingsDialog> {
     final p = _printers!.firstWhere((x) => x.name == _selected);
     setState(() { _busy = true; _message = null; });
     try {
-      await ReceiptPrinter.printTest(p);
+      await ReceiptPrinter.printTest(p, _kind);
       if (mounted) setState(() { _message = 'أُرسلت صفحة الاختبار. تأكد من خروجها ووضوح العربية.'; _error = false; });
     } on PrintFailure catch (e) {
       if (mounted) setState(() { _message = '${e.message} تحقق من الورق والتوصيل.'; _error = true; });
@@ -66,7 +69,7 @@ class _State extends State<PrinterSettingsDialog> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           ValueListenableBuilder<bool?>(valueListenable: Api.online, builder: (_, v, __) => ConnectionBadge(online: v, onDark: false)),
           const SizedBox(height: 16),
-          const Text('طابعة الإيصالات'),
+          const Text('الطابعة'),
           const SizedBox(height: 6),
           if (_printers == null)
             const LinearProgressIndicator()
@@ -80,6 +83,22 @@ class _State extends State<PrinterSettingsDialog> {
               onChanged: (v) async {
                 setState(() { _selected = v; _message = null; });
                 await ReceiptPrinter.savePrinterName(v);
+              },
+            ),
+          const SizedBox(height: 16),
+          const Text('نوع الطابعة — يحدد شكل الفاتورة المطبوعة والمحفوظة PDF'),
+          const SizedBox(height: 6),
+          for (final k in PrinterKind.values)
+            RadioListTile<PrinterKind>(
+              value: k,
+              groupValue: _kind,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(k.label),
+              onChanged: (v) async {
+                if (v == null) return;
+                setState(() { _kind = v; _message = null; });
+                await ReceiptPrinter.saveKind(v);
               },
             ),
           if (_message != null) ...[

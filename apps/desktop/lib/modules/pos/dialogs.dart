@@ -143,6 +143,7 @@ class SaleDoneDialog extends StatefulWidget {
 class _SaleDoneState extends State<SaleDoneDialog> {
   bool _printing = true;
   String? _printError;
+  String? _savedPath, _saveError;
 
   @override
   void initState() {
@@ -162,12 +163,26 @@ class _SaleDoneState extends State<SaleDoneDialog> {
     if (mounted) setState(() => _printing = false);
   }
 
+  /// حفظ الفاتورة PDF بالشكل المناسب لنوع الطابعة المختارة.
+  Future<void> _export() async {
+    try {
+      final path = await ReceiptPrinter.exportPdf(widget.invoice);
+      if (mounted) setState(() { _savedPath = path; _saveError = null; });
+      await ReceiptPrinter.revealInExplorer(path);
+    } catch (_) {
+      if (mounted) setState(() => _saveError = 'تعذّر حفظ ملف PDF. تحقق من صلاحية الكتابة في مجلد المستندات.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final inv = widget.invoice;
     final change = (inv['change_baisa'] as num).toInt();
     return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => _print(true)},
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => _print(true),
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _export,
+      },
       child: AlertDialog(
         title: Text(widget.reprint ? 'إعادة طباعة الفاتورة' : 'تم اعتماد الفاتورة'),
         content: SizedBox(
@@ -185,10 +200,14 @@ class _SaleDoneState extends State<SaleDoneDialog> {
             else if (_printError != null)
               Text('الفاتورة معتمدة ومحفوظة، لكن تعذّرت الطباعة:\n$_printError', textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad, fontSize: 16))
             else
-              const Text('أُرسل الإيصال إلى الطابعة.', textAlign: TextAlign.center, style: TextStyle(color: Brand.ok)),
+              const Text('أُرسلت الفاتورة إلى الطابعة.', textAlign: TextAlign.center, style: TextStyle(color: Brand.ok)),
+            if (_savedPath != null)
+              Padding(padding: const EdgeInsets.only(top: 10), child: Text('حُفظ الملف:\n$_savedPath', textAlign: TextAlign.center, textDirection: TextDirection.ltr, style: const TextStyle(color: Brand.ok, fontSize: 14))),
+            if (_saveError != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_saveError!, textAlign: TextAlign.center, style: const TextStyle(color: Brand.bad))),
           ]),
         ),
         actions: [
+          OutlinedButton(onPressed: _export, child: const Text('حفظ PDF (Ctrl+S)')),
           OutlinedButton(onPressed: _printing ? null : () => _print(true), child: const Text('إعادة الطباعة (Ctrl+P)')),
           FilledButton(autofocus: true, onPressed: () => Navigator.pop(context), child: Text(widget.reprint ? 'إغلاق (Enter)' : 'فاتورة جديدة (Enter)')),
         ],
