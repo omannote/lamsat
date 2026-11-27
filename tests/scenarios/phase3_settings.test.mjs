@@ -129,3 +129,55 @@ test('بطاقة الصنف، استلام مشتريات نقدي وآجل بض
   await expectCode(db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(cs)]), 'BELOW_MIN_PRICE');
   assert.equal((await db.rpc(ID.manager, 'approve_sale', [uuid(), sale(s)])).status, 'approved');
 });
+
+test('الضمان، ملف العميل، تصنيف المصروفات، التحويل بين الفرعين، لوحة المالك، تقرير الضريبة، وأدوار المستخدمين', async () => {
+  const s = (await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session.id;
+  // صنف بضمان 12 شهرًا يُصدر بطاقة ضمان على الفاتورة
+  const p = await db.rpc(ID.owner, 'save_product', [{ organization_id: ID.org, sku: 'TNT-W-1', name_ar: 'عازل بضمان', kind: 'service', category: 'tint',
+    base_price_baisa: 40000, warranty_months: 12 }]);
+  assert.equal(p.warranty_months, 12);
+  const cust = (await db.rpc(ID.manager, 'save_customer', [{ branch_id: ID.tyr, name: 'عميل الضمان', phone: '96890000088', plate: '1234 A' }]));
+  const tot = (await db.sql(`select tax_enabled, prices_include_tax from branch_settings where branch_id=$1`, [ID.tyr]))[0];
+  const total = tot.tax_enabled && !tot.prices_include_tax ? 42000 : 40000;
+  const r = await db.rpc(ID.manager, 'approve_sale', [uuid(), { cash_session_id: s, customer_id: cust.customer.id, vehicle_id: cust.vehicle.id,
+    lines: [{ product_id: p.id, qty: 1, unit_price_baisa: 40000, discount_baisa: 0 }], payments: [{ method: 'cash', amount_baisa: total }], expected_total_baisa: total }]);
+  assert.equal(r.invoice.warranties.length, 1);
+  assert.match(r.invoice.warranties[0].warranty_no, /^W-/);
+  await db.rpc(ID.manager, 'add_vehicle', [ID.tyr, cust.customer.id, '9999 B', 'تويوتا', 'كامري']);
+  const prof = await db.rpc(ID.manager, 'customer_profile', [cust.customer.id]);
+  assert.deepEqual([prof.vehicles.length, prof.warranties.length, prof.warranties[0].active, prof.invoices.length, prof.warranties[0].plate], [2, 1, true, 1, '1234 A']);
+
+  // مصروف مصنّف يظهر في حركات الوردية
+  await db.rpc(ID.manager, 'record_cash_movement_cat', [uuid(), s, 'cash_out', 1500, 'ماء وشاي', 'ضيافة']);
+  const mv = await db.rpc(ID.manager, 'session_movements', [s]);
+  assert.deepEqual(mv.filter((m) => m.category === 'ضيافة').map((m) => m.amount_baisa), [-1500]);
+
+  // تحويل مخزون: يحتاج صلاحية على الفرع المصدر، ويحافظ على التكلفة
+  const q = async (b) => Number((await db.sql(`select coalesce(sum(qty_on_hand),0) q from inventory_lots where branch_id=$1 and product_id=$2`, [b, ID.tireBS]))[0].q);
+  const [a0, b0] = [await q(ID.tyr), await q(ID.tnt)];
+  await expectCode(db.rpc(ID.manager, 'transfer_stock', [uuid(), ID.tnt, ID.tyr, ID.tireBS, 1, null]), 'FORBIDDEN');
+  await expectCode(db.rpc(ID.manager, 'transfer_stock', [uuid(), ID.tyr, ID.tnt, ID.tireBS, a0 + 1, null]), 'INSUFFICIENT_STOCK');
+  await db.rpc(ID.manager, 'transfer_stock', [uuid(), ID.tyr, ID.tnt, ID.tireBS, 2, 'نقل']);
+  assert.deepEqual([await q(ID.tyr), await q(ID.tnt)], [a0 - 2, b0 + 2]);
+
+  // لوحة المالك وتقرير الضريبة
+  const today = (await db.sql(`select (now() at time zone 'Asia/Muscat')::date::text d`))[0].d;
+  const dash = await db.rpc(ID.owner, 'owner_dashboard', [today, today]);
+  assert.equal(dash.branches.length, 2);
+  assert.equal(dash.series.length, 7);
+  assert.ok(dash.top_products.length > 0 && dash.payables_baisa >= 0 && dash.receivables_baisa !== undefined);
+  assert.equal((await db.rpc(ID.cashierTyr, 'owner_dashboard', [today, today])).branches.length, 0, 'الكاشير لا يرى اللوحة');
+  const vat = await db.rpc(ID.owner, 'vat_report', [null, today.slice(0, 8) + '01', today]);
+  assert.equal(vat.net_tax_baisa, vat.output_tax_baisa - vat.input_tax_baisa);
+  assert.ok(vat.input_tax_baisa >= 10100, 'ضريبة مدخلات المشتريات السابقة');
+
+  // المستخدمون: المالك فقط، ودور واحد لكل مستخدم
+  await expectCode(db.rpc(ID.manager, 'list_users', [ID.org]), 'FORBIDDEN');
+  const users = await db.rpc(ID.owner, 'list_users', [ID.org]);
+  assert.equal(users.length, 5);
+  await expectCode(db.rpc(ID.owner, 'save_user_role', [{ organization_id: ID.org, user_id: ID.owner, role_code: 'cashier', branch_id: ID.tyr }]), 'CANNOT_CHANGE_SELF');
+  await expectCode(db.rpc(ID.owner, 'save_user_role', [{ organization_id: ID.org, user_id: ID.cashierTnt, role_code: 'cashier' }]), 'BRANCH_REQUIRED');
+  await db.rpc(ID.owner, 'save_user_role', [{ organization_id: ID.org, user_id: ID.cashierTnt, role_code: 'branch_manager', branch_id: ID.tnt, max_discount_bp: 1500 }]);
+  const m = await db.sql(`select role_code, max_discount_bp from memberships where user_id=$1`, [ID.cashierTnt]);
+  assert.deepEqual(m.map((x) => [x.role_code, x.max_discount_bp]), [['branch_manager', 1500]]);
+});

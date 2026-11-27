@@ -161,7 +161,7 @@ class _State extends State<ShiftGate> {
               _Tab.customers => CustomersPage(ctx: c),
               _Tab.day => DayPage(key: ValueKey('day-${c.sessionId}'), ctx: c, onChanged: _load, onOpenShift: _openShift),
               _Tab.reports => ReportsPage(ctx: c),
-              _Tab.settings => SettingsPage(ctx: c),
+              _Tab.settings => SettingsPage(ctx: c, onChanged: _load),
             },
           ),
         ]),

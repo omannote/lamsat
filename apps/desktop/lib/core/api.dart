@@ -82,6 +82,7 @@ String errorMessage(String code) {
     'SESSION_NOT_FOUND': 'الوردية غير موجودة.',
     'SESSION_CLOSED': 'الوردية مقفلة. افتح وردية جديدة.',
     'SESSION_NOT_YOURS': 'هذه الوردية مفتوحة باسم مستخدم آخر.',
+    'INVOICE_NOT_REFUNDABLE': 'هذه الفاتورة لا تقبل مرتجعًا (ملغاة أو غير معتمدة).',
     'BELOW_MIN_PRICE': 'الخصم ينزل بالسعر تحت أدنى سعر مسموح للكاشير لهذا الصنف.',
     'SUPPLIER_REQUIRED': 'الشراء الآجل يتطلب اختيار المورّد.',
     'CREDIT_REQUIRES_CUSTOMER': 'البيع الآجل يتطلب عميلًا مربوطًا بالفاتورة.',

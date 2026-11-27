@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -139,6 +140,7 @@ class ReceiptPrinter {
       if (n('change_baisa') > 0) row('الباقي', formatOmr(n('change_baisa'))),
       pw.Divider(thickness: .6),
       if (branch['receipt_footer_ar'] != null) pw.Center(child: pw.Text(branch['receipt_footer_ar'] as String, style: small)),
+      ..._warrantyCards(inv, 8),
       pw.SizedBox(height: 8),
     ]);
   }
@@ -275,7 +277,99 @@ class ReceiptPrinter {
       ]),
       pw.SizedBox(height: 24),
       if (branch['receipt_footer_ar'] != null) pw.Center(child: pw.Text('${branch['receipt_footer_ar']}', style: label)),
+      ..._warrantyCards(inv, 10),
     ];
+  }
+
+  /// بطاقة ضمان لكل بند له ضمان (مثل العازل): رقم الضمان، الصنف، المدة، تاريخ الانتهاء، العميل واللوحة.
+  static List<pw.Widget> _warrantyCards(Map<String, dynamic> inv, double size) {
+    final list = ((inv['warranties'] as List?) ?? const []).cast<Map>();
+    if (list.isEmpty) return const [];
+    final customer = inv['customer'] as Map?;
+    final vehicle = inv['vehicle'] as Map?;
+    final t = pw.TextStyle(fontSize: size);
+    final b = pw.TextStyle(fontSize: size + 1, fontWeight: pw.FontWeight.bold);
+    pw.Widget row(String k, String v) => pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text(k, style: t), pw.Text(v, style: t, textDirection: pw.TextDirection.ltr)]);
+    return [
+      for (final w in list)
+        pw.Container(
+          margin: const pw.EdgeInsets.only(top: 10),
+          padding: const pw.EdgeInsets.all(6),
+          decoration: pw.BoxDecoration(border: pw.Border.all(width: .8)),
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
+            pw.Center(child: pw.Text('بطاقة ضمان', style: b)),
+            pw.SizedBox(height: 3),
+            pw.Text('${w['product_name']}', style: t),
+            row('رقم الضمان', '${w['warranty_no']}'),
+            row('المدة', '${w['months']} شهرًا'),
+            row('من', '${w['starts_on']}'),
+            row('ينتهي في', '${w['expires_on']}'),
+            if (customer != null) row('العميل', '${customer['name']}'),
+            if (vehicle != null) row('اللوحة', '${vehicle['plate']}'),
+            pw.SizedBox(height: 2),
+            pw.Text('يُشترط إبراز هذه البطاقة أو رقم الفاتورة عند المطالبة بالضمان.', style: pw.TextStyle(fontSize: size - 1)),
+          ]),
+        ),
+    ];
+  }
+
+  /// تقرير جدولي A4 (كشف حساب، تقرير إقفال، تقرير ضريبة) يُكتب في مجلد مؤقت للعرض والطباعة من عارض PDF. يعيد المسار.
+  static Future<String> tempReport(String fileName, String title, List<String> header, List<List<String>> rows,
+      {List<String> intro = const [], List<(String, String)> summary = const []}) async {
+    await _loadAssets();
+    final doc = pw.Document(title: title);
+    final cell = pw.TextStyle(fontSize: 9);
+    final head = pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold);
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4.copyWith(marginLeft: 36, marginRight: 36, marginTop: 36, marginBottom: 36),
+      textDirection: pw.TextDirection.rtl,
+      theme: pw.ThemeData.withFont(base: _regular!, bold: _bold!),
+      build: (_) => [
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text(title, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.Image(_logoColor!, width: 34 * PdfPageFormat.mm),
+        ]),
+        pw.SizedBox(height: 6),
+        for (final l in intro) pw.Text(l, style: const pw.TextStyle(fontSize: 10)),
+        pw.SizedBox(height: 10),
+        if (rows.isNotEmpty)
+          pw.Table(
+            border: pw.TableBorder.all(width: .4, color: PdfColors.grey600),
+            children: [
+              pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                  children: [for (final h in header) pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(h, style: head))]),
+              for (final r in rows) pw.TableRow(children: [for (final c in r) pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(c, style: cell))]),
+            ],
+          ),
+        pw.SizedBox(height: 12),
+        for (final (k, v) in summary)
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text(k, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text(v, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold), textDirection: pw.TextDirection.ltr),
+            ]),
+          ),
+      ],
+    ));
+    return _writeTemp('$fileName.pdf', await doc.save());
+  }
+
+  /// ملف CSV يفتحه Excel (بترميز UTF-8 مع BOM حتى تظهر العربية). يعيد المسار.
+  static Future<String> tempCsv(String fileName, List<String> header, List<List<String>> rows) {
+    String esc(String v) => '"${v.replaceAll('"', '""')}"';
+    final text = [header, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
+    return _writeTemp('$fileName.csv', Uint8List.fromList([0xEF, 0xBB, 0xBF, ...const Utf8Encoder().convert(text)]));
+  }
+
+  static Future<String> _writeTemp(String name, Uint8List bytes) async {
+    final dir = Directory('${Directory.systemTemp.path}${Platform.pathSeparator}Lamsat');
+    await dir.create(recursive: true);
+    final file = File('${dir.path}${Platform.pathSeparator}${name.replaceAll(RegExp(r'[^A-Za-z0-9_.\-]'), '_')}');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
   }
 
   /// يكتب الفاتورة PDF في مجلد مؤقت (للعرض أو السحب إلى واتساب) بالشكل المناسب لنوع الطابعة، ويعيد المسار.

@@ -85,6 +85,14 @@ class _InventoryState extends State<InventoryPage> {
     if (done == true) await _load();
   }
 
+  Future<void> _transfer() async {
+    if (!widget.ctx.permissions.contains('inventory.manage')) return _deny('التحويل بين الفروع لمدير الفرع أو المالك.');
+    final row = (_rows ?? const <Map<String, dynamic>>[]).where((r) => r['product_id'] == _selected).toList();
+    if (row.isEmpty) return _deny('اختر صنفًا من القائمة أولًا ثم اضغط «تحويل».');
+    final done = await showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => TransferDialog(ctx: widget.ctx, row: row.first));
+    if (done == true) await _load();
+  }
+
   Future<void> _deny(String text) => showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(content: Text(text, style: const TextStyle(fontSize: 17)), actions: [FilledButton(autofocus: true, onPressed: () => Navigator.pop(c), child: const Text('حسنًا'))]));
@@ -107,6 +115,7 @@ class _InventoryState extends State<InventoryPage> {
           if (_selected != null) _card(_selected);
         },
         const SingleActivator(LogicalKeyboardKey.f6): _receive,
+        const SingleActivator(LogicalKeyboardKey.f7): _transfer,
         const SingleActivator(LogicalKeyboardKey.f9): _count,
       },
       child: _Page(
@@ -131,6 +140,8 @@ class _InventoryState extends State<InventoryPage> {
           OutlinedButton(onPressed: _selected == null ? null : () => _card(_selected), child: const Text('بطاقة الصنف F4')),
           const SizedBox(width: 6),
           OutlinedButton(onPressed: _receive, child: const Text('استلام مشتريات F6')),
+          const SizedBox(width: 6),
+          OutlinedButton(onPressed: _transfer, child: const Text('تحويل F7')),
           const SizedBox(width: 6),
           OutlinedButton(onPressed: _count, child: const Text('جرد F9')),
         ],
@@ -205,7 +216,7 @@ class _ProductCardState extends State<ProductCardDialog> {
   final _barcodes = TextEditingController(), _brand = TextEditingController(), _unit = TextEditingController(text: 'قطعة');
   final _reorder = TextEditingController(), _price = TextEditingController(), _minPrice = TextEditingController();
   final _width = TextEditingController(), _aspect = TextEditingController(), _rim = TextEditingController();
-  final _year = TextEditingController(), _country = TextEditingController();
+  final _year = TextEditingController(), _country = TextEditingController(), _warranty = TextEditingController();
   String _category = 'tire';
   String? _supplier;
   bool _taxable = true, _active = true, _wholeUnits = true;
@@ -214,7 +225,7 @@ class _ProductCardState extends State<ProductCardDialog> {
   Map<String, dynamic>? _card;
   List<Map<String, dynamic>> _suppliers = [];
 
-  List<TextEditingController> get _all => [_sku, _nameAr, _nameEn, _barcodes, _brand, _unit, _reorder, _price, _minPrice, _width, _aspect, _rim, _year, _country];
+  List<TextEditingController> get _all => [_sku, _nameAr, _nameEn, _barcodes, _brand, _unit, _reorder, _price, _minPrice, _width, _aspect, _rim, _year, _country, _warranty];
 
   @override
   void initState() {
@@ -253,6 +264,7 @@ class _ProductCardState extends State<ProductCardDialog> {
         _rim.text = '${p['tire_rim'] ?? ''}';
         _year.text = '${p['tire_year'] ?? ''}';
         _country.text = '${p['tire_country'] ?? ''}';
+        _warranty.text = '${p['warranty_months'] ?? ''}';
         _category = _categories.containsKey(p['category']) ? p['category'] as String : 'general';
         _supplier = _suppliers.any((x) => x['id'] == p['default_supplier_id']) ? p['default_supplier_id'] as String? : null;
         _taxable = p['taxable'] == true;
@@ -279,6 +291,7 @@ class _ProductCardState extends State<ProductCardDialog> {
     if (err == null && _minPrice.text.trim().isNotEmpty && minPrice == null) err = 'أدنى سعر غير صالح.';
     if (err == null && minPrice != null && price != null && minPrice > price) err = 'أدنى سعر للكاشير لا يتجاوز سعر البيع.';
     if (err == null && _reorder.text.trim().isNotEmpty && reorder == null) err = 'حد التنبيه غير صالح.';
+    if (err == null && _warranty.text.trim().isNotEmpty && (_int(_warranty) == null || _int(_warranty)! < 0 || _int(_warranty)! > 120)) err = 'مدة الضمان بالأشهر بين 0 و120.';
     final tire = _category == 'tire';
     for (final c in [_width, _aspect, _rim, _year]) {
       if (err == null && tire && c.text.trim().isNotEmpty && _int(c) == null) err = 'بيانات الإطار أرقام صحيحة فقط.';
@@ -301,7 +314,7 @@ class _ProductCardState extends State<ProductCardDialog> {
           'tire_width': tire ? _int(_width) : null, 'tire_aspect': tire ? _int(_aspect) : null, 'tire_rim': tire ? _int(_rim) : null,
           'tire_year': tire ? _int(_year) : null, 'tire_country': tire ? _country.text.trim() : null,
           'barcodes': _barcodes.text.split(RegExp(r'[,،\s]+')).where((b) => b.trim().isNotEmpty).toList(),
-          'default_supplier_id': _supplier, 'min_price_baisa': minPrice,
+          'default_supplier_id': _supplier, 'min_price_baisa': minPrice, 'warranty_months': _int(_warranty),
           'reorder_level': reorder == null ? null : reorder / 1000,
         }
       });
@@ -392,6 +405,7 @@ class _ProductCardState extends State<ProductCardDialog> {
                       _row([
                         _input(_price, 'سعر البيع (ر.ع)', ltr: true, enabled: e, onChanged: (_) => setState(() {})),
                         _input(_minPrice, 'أدنى سعر للكاشير (ر.ع)', ltr: true, enabled: e),
+                        _input(_warranty, 'الضمان (أشهر)', ltr: true, enabled: e),
                       ]),
                       if (avg != null && price != null && price > 0)
                         Padding(

@@ -13,6 +13,7 @@ import '../cash/shift_gate.dart';
 import '../customers/customer_lookup_dialog.dart';
 import '../invoices/invoice_history_dialog.dart';
 import '../printing/printer_settings_dialog.dart';
+import '../shell/pages.dart';
 import 'approving_dialog.dart';
 import 'cart.dart';
 import 'dialogs.dart';
@@ -262,6 +263,16 @@ class _State extends State<PosScreen> {
     if (closed == true) widget.onShiftClosed();
   }
 
+  /// F11: مرتجع لفاتورة معتمدة — لمن يملك صلاحية المرتجع (مدير الفرع والمالك).
+  Future<void> _refund() async {
+    if (_dialogOpen) return;
+    if (!shift.permissions.contains('invoice.refund')) {
+      await _open<void>(const _MessageDialog('المرتجع', 'المرتجع ينفذه مدير الفرع أو المالك. اطلب منه الدخول بحسابه.'));
+      return;
+    }
+    await _open<bool>(RefundDialog(ctx: shift), dismissible: false);
+  }
+
   // ───────── الدفع والاعتماد ─────────
 
   Future<void> _pay([PayMethod method = PayMethod.cash]) async {
@@ -374,8 +385,7 @@ class _State extends State<PosScreen> {
         const SingleActivator(LogicalKeyboardKey.f8): () => _pay(PayMethod.cash),
         const SingleActivator(LogicalKeyboardKey.f9): () => _pay(PayMethod.card),
         const SingleActivator(LogicalKeyboardKey.f10): () => _pay(PayMethod.cash),
-        const SingleActivator(LogicalKeyboardKey.f11): () => _open<void>(const _MessageDialog(
-            'المرتجع', 'المرتجع وإلغاء الفاتورة ينفذهما مدير الفرع من لوحة الإدارة حاليًا (صفحة الفاتورة). نقلهما إلى هذه الشاشة ضمن العمل القادم.')),
+        const SingleActivator(LogicalKeyboardKey.f11): _refund,
         const SingleActivator(LogicalKeyboardKey.f12): _closeShift,
         const SingleActivator(LogicalKeyboardKey.keyH, control: true): () =>
             _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
@@ -603,7 +613,7 @@ class _State extends State<PosScreen> {
           key('F8', 'نقدي', () => _pay(PayMethod.cash)),
           key('F9', 'بطاقة', () => _pay(PayMethod.card)),
           key('F10', 'حفظ وطباعة', () => _pay(PayMethod.cash)),
-          key('F11', 'مرتجع', () => _open<void>(const _MessageDialog('المرتجع', 'المرتجع ينفذه مدير الفرع من لوحة الإدارة حاليًا.'))),
+          key('F11', 'مرتجع', _refund),
           key('F12', 'إغلاق اليومية', _closeShift),
           key('Ctrl+H', 'سجل الفواتير', () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint')))),
           key('Ctrl+M', 'مصروف / قبض', () {
