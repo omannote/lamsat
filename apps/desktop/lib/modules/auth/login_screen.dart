@@ -21,11 +21,19 @@ class _State extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_busy) return;
+    if (_email.text.trim().isEmpty) {
+      setState(() => _error = 'أدخل اسم المستخدم.');
+      return;
+    }
+    if (_password.text.length < 8) {
+      setState(() => _error = 'الرقم السري ثماني خانات على الأقل.');
+      return;
+    }
     setState(() { _busy = true; _error = null; });
     try {
-      await Api.client.auth.signInWithPassword(email: _email.text.trim(), password: _password.text).timeout(const Duration(seconds: 15));
+      await Api.client.auth.signInWithPassword(email: Api.config.loginId(_email.text), password: _password.text).timeout(const Duration(seconds: 15));
     } on AuthException catch (e) {
-      _error = (e.statusCode == '400') ? 'البريد أو كلمة المرور غير صحيحة.' : 'تعذّر تسجيل الدخول. أعد المحاولة.';
+      _error = (e.statusCode == '400') ? 'اسم المستخدم أو الرقم السري غير صحيح.' : 'تعذّر تسجيل الدخول. أعد المحاولة.';
     } catch (_) {
       _error = 'لا يوجد اتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة.';
       unawaited(Api.checkConnection());
@@ -59,8 +67,7 @@ class _State extends State<LoginScreen> {
               controller: _email,
               autofocus: true,
               textDirection: TextDirection.ltr,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+              decoration: const InputDecoration(labelText: 'اسم المستخدم'),
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _passwordFocus.requestFocus(),
             ),
@@ -70,7 +77,7 @@ class _State extends State<LoginScreen> {
               focusNode: _passwordFocus,
               obscureText: true,
               textDirection: TextDirection.ltr,
-              decoration: const InputDecoration(labelText: 'كلمة المرور'),
+              decoration: const InputDecoration(labelText: 'الرقم السري (8 خانات على الأقل)'),
               onSubmitted: (_) => _submit(),
             ),
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Brand.bad))),

@@ -7,14 +7,23 @@ class AppConfig {
   final String supabaseUrl;
   final String publishableKey;
   final String deviceCode;
-  const AppConfig({required this.supabaseUrl, required this.publishableKey, required this.deviceCode});
+
+  /// نطاق داخلي يُلحق باسم المستخدم عند الدخول (المستخدم يكتب الاسم فقط).
+  final String loginDomain;
+  const AppConfig({required this.supabaseUrl, required this.publishableKey, required this.deviceCode, this.loginDomain = 'lamsat.test'});
+
+  /// اسم المستخدم ← معرّف الدخول. يُقبل البريد الكامل أيضًا.
+  String loginId(String username) {
+    final u = username.trim().toLowerCase();
+    return u.contains('@') ? u : '$u@$loginDomain';
+  }
 
   static const _url = String.fromEnvironment('SUPABASE_URL');
   static const _key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   static const _device = String.fromEnvironment('DEVICE_CODE');
 
   static AppConfig load() {
-    var url = _url, key = _key, device = _device;
+    var url = _url, key = _key, device = _device, domain = 'lamsat.test';
     final candidates = [
       File('${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}lamsat.config.json'),
       File('lamsat.config.json'),
@@ -25,11 +34,12 @@ class AppConfig {
       url = (j['supabase_url'] as String?) ?? url;
       key = (j['supabase_publishable_key'] as String?) ?? key;
       device = (j['device_code'] as String?) ?? device;
+      domain = (j['login_domain'] as String?) ?? domain;
       break;
     }
     if (url.isEmpty || key.isEmpty || device.isEmpty) {
       throw const FormatException('ملف الإعدادات lamsat.config.json ناقص: supabase_url و supabase_publishable_key و device_code مطلوبة.');
     }
-    return AppConfig(supabaseUrl: url, publishableKey: key, deviceCode: device);
+    return AppConfig(supabaseUrl: url, publishableKey: key, deviceCode: device, loginDomain: domain);
   }
 }
