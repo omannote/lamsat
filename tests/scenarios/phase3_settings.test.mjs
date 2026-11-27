@@ -31,3 +31,23 @@ test('إعدادات الضريبة ونص الإيصال تُحدَّث وتُ�
   assert.deepEqual([r.invoice.tax_baisa, r.invoice.branch.receipt_footer_ar], [0, 'نسعد بخدمتكم']);
   await expectCode(db.rpc(ID.owner, 'update_branch_settings', [ID.tnt, { tax_rate_bp: 20000 }]), 'INVALID_AMOUNT');
 });
+
+test('كل موظف يفتح ورديته على الجهاز نفسه، ويبيع ويقفل في ورديته فقط', async () => {
+  // كاشير الإطارات لديه وردية مفتوحة على الجهاز 1؛ المدير (مفعّل) يفتح ورديته على الجهاز نفسه
+  const mine = (await db.rpc(ID.cashierTyr, 'resolve_device', ['POS-TYR-01'])).open_session;
+  assert.equal(mine.mine, true);
+  assert.equal((await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session, null, 'لا يرى وردية غيره كورديته');
+  const m = (await db.rpc(ID.manager, 'open_cash_session', [uuid(), ID.devTyr1, 5000])).session.id;
+  assert.notEqual(m, mine.id);
+  await expectCode(db.rpc(ID.manager, 'open_cash_session', [uuid(), ID.devTyr1, 0]), 'SESSION_ALREADY_OPEN');
+  const sale = (s) => ({ cash_session_id: s, lines: [{ product_id: ID.install, qty: 1, unit_price_baisa: 1000, discount_baisa: 0 }],
+    payments: [{ method: 'cash', amount_baisa: 1000 }], expected_total_baisa: 1000 });
+  await db.rpc(ID.manager, 'approve_sale', [uuid(), sale(m)]);
+  await db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(mine.id)]);
+  await expectCode(db.rpc(ID.cashierTyr, 'approve_sale', [uuid(), sale(m)]), 'SESSION_NOT_YOURS');
+  const a = await db.rpc(ID.manager, 'cash_session_summary', [m]);
+  const b = await db.rpc(ID.cashierTyr, 'cash_session_summary', [mine.id]);
+  assert.deepEqual([a.expected_cash_baisa, b.expected_cash_baisa], [6000, 1000], 'نقد كل وردية محسوب على حدة');
+  await db.rpc(ID.cashierTyr, 'close_cash_session', [uuid(), mine.id, 1000, null]);
+  assert.equal((await db.rpc(ID.manager, 'resolve_device', ['POS-TYR-01'])).open_session.id, m, 'إقفال وردية لا يمس وردية الآخر');
+});

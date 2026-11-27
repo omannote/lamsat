@@ -25,7 +25,8 @@ import 'pending_operation.dart';
 class PosScreen extends StatefulWidget {
   final ShiftContext shift;
   final VoidCallback onShiftClosed;
-  const PosScreen({super.key, required this.shift, required this.onShiftClosed});
+  final Future<void> Function() onOpenShift;
+  const PosScreen({super.key, required this.shift, required this.onShiftClosed, required this.onOpenShift});
   @override
   State<PosScreen> createState() => _State();
 }
@@ -56,6 +57,17 @@ class _State extends State<PosScreen> {
     _search.dispose();
     _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// إصدار الفواتير يتطلب وردية مفتوحة لهذا الحساب. بدونها يبقى الحساب للاطلاع فقط.
+  Future<String?> _needShift() async {
+    if (shift.sessionId != null) return shift.sessionId;
+    if (shift.canOpenShift) {
+      await widget.onOpenShift();
+    } else {
+      await _open<void>(const _MessageDialog('لا توجد وردية', 'هذا الحساب للاطلاع فقط: إصدار الفواتير يتطلب وردية، والورديات غير مفعّلة لدوره. يفعّلها المالك من الإعدادات.'));
+    }
+    return null;
   }
 
   // ───────── البحث وإضافة الأصناف ─────────
@@ -211,7 +223,9 @@ class _State extends State<PosScreen> {
   Future<void> _drafts() async {
     if (_dialogOpen) return;
     if (!_cart.isEmpty) {
-      final saved = await _open<bool>(SaveDraftDialog(sessionId: shift.sessionId, cart: _cart, totalBaisa: _cart.total(_tax)), dismissible: false);
+      final sid = await _needShift();
+      if (sid == null) return;
+      final saved = await _open<bool>(SaveDraftDialog(sessionId: sid, cart: _cart, totalBaisa: _cart.total(_tax)), dismissible: false);
       if (saved == true && mounted) setState(() { _cart.clear(); _lineIndex = 0; });
       return;
     }
@@ -230,7 +244,9 @@ class _State extends State<PosScreen> {
       await _open<void>(const _MessageDialog('إقفال الوردية', 'في السلة بنود لم تُعتمد. أكمل الفاتورة أو ابدأ فاتورة جديدة (F1) ثم أقفل الوردية.'));
       return;
     }
-    final closed = await _open<bool>(CloseShiftDialog(sessionId: shift.sessionId), dismissible: false);
+    final sid = await _needShift();
+    if (sid == null) return;
+    final closed = await _open<bool>(CloseShiftDialog(sessionId: sid), dismissible: false);
     if (closed == true) widget.onShiftClosed();
   }
 
@@ -238,18 +254,20 @@ class _State extends State<PosScreen> {
 
   Future<void> _pay() async {
     if (_cart.isEmpty || _dialogOpen) return;
+    final sid = await _needShift();
+    if (sid == null || !mounted) return;
     final pay = await _open<PaymentResult>(PaymentDialog(totalBaisa: _cart.total(_tax)));
     if (pay == null || !mounted) return;
     // معرّف العملية يُولَّد قبل الإرسال ويُحفظ مع الحمولة؛ إعادة المحاولة تستخدمهما كما هما.
     final opId = const Uuid().v4();
     final payload = _cart.toPayload(
-      cashSessionId: shift.sessionId, tax: _tax, cashBaisa: pay.split.cash, cardBaisa: pay.split.card,
+      cashSessionId: sid, tax: _tax, cashBaisa: pay.split.cash, cardBaisa: pay.split.card,
       cashTenderedBaisa: pay.split.cash > 0 ? pay.split.tendered : null, cardReference: pay.cardReference,
     );
     await PendingOperation.save(opId, payload);
     if (!mounted) return;
     final outcome = await _open<ApproveOutcome>(
-      ApprovingDialog(operationId: opId, cashSessionId: shift.sessionId, payload: payload), dismissible: false);
+      ApprovingDialog(operationId: opId, cashSessionId: sid, payload: payload), dismissible: false);
     if (outcome != null) await _handleOutcome(outcome, fromCart: true);
   }
 
@@ -269,7 +287,7 @@ class _State extends State<PosScreen> {
       return;
     }
     final outcome = await _open<ApproveOutcome>(
-      ApprovingDialog(operationId: p.operationId, cashSessionId: shift.sessionId, payload: p.payload, verifyOnly: true), dismissible: false);
+      ApprovingDialog(operationId: p.operationId, cashSessionId: shift.sessionId!, payload: p.payload, verifyOnly: true), dismissible: false);
     if (outcome != null) await _handleOutcome(outcome, fromCart: false);
   }
 
@@ -335,7 +353,7 @@ class _State extends State<PosScreen> {
         const SingleActivator(LogicalKeyboardKey.f3): _pickCustomer,
         const SingleActivator(LogicalKeyboardKey.f4): _editLine,
         const SingleActivator(LogicalKeyboardKey.f5): () {
-          if (shift.permissions.contains('cash.movement')) _open<void>(CashMovementDialog(sessionId: shift.sessionId), dismissible: false);
+          if (shift.permissions.contains('cash.movement') && shift.sessionId != null) _open<void>(CashMovementDialog(sessionId: shift.sessionId!), dismissible: false);
         },
         const SingleActivator(LogicalKeyboardKey.f6): _drafts,
         const SingleActivator(LogicalKeyboardKey.f7): () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
@@ -345,7 +363,22 @@ class _State extends State<PosScreen> {
       },
       child: Scaffold(
         body: Column(children: [
-          _topBar(),
+          if (shift.sessionId == null)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFFFF4E5),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                      shift.canOpenShift
+                          ? 'لا توجد وردية مفتوحة لحسابك. يمكنك التصفح، ولإصدار الفواتير افتح وردية.'
+                          : 'حسابك للاطلاع فقط: الورديات غير مفعّلة لدوره، فلا يمكنه إصدار الفواتير. يفعّلها المالك من الإعدادات.',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF9A5B00))),
+                ),
+                if (shift.canOpenShift) FilledButton(focusNode: FocusNode(skipTraversal: true), onPressed: widget.onOpenShift, child: const Text('فتح وردية')),
+              ]),
+            ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -361,31 +394,6 @@ class _State extends State<PosScreen> {
       ),
     );
   }
-
-  Widget _topBar() => Container(
-        color: Brand.ink,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-            child: Image.asset('assets/brand/lamsat-logo.png', height: 28),
-          ),
-          const SizedBox(width: 16),
-          Text('${shift.branchName} · ${shift.deviceName}', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600)),
-          const Spacer(),
-          ValueListenableBuilder<bool?>(valueListenable: Api.online, builder: (_, v, __) => ConnectionBadge(online: v)),
-          const SizedBox(width: 20),
-          Text(shift.userName, style: const TextStyle(color: Color(0xFFCFD9DD))),
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: 'تسجيل الخروج (الوردية تبقى مفتوحة)',
-            focusNode: FocusNode(skipTraversal: true),
-            icon: const Icon(Icons.logout, color: Colors.white70),
-            onPressed: () => Api.client.auth.signOut(),
-          ),
-        ]),
-      );
 
   Widget _searchPane() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Focus(

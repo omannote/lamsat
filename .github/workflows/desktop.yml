@@ -16,6 +16,12 @@ jobs:
       - name: Remove the template test that flutter create may add
         shell: bash
         run: rm -f test/widget_test.dart
+      - name: Company icon and window title instead of the Flutter defaults
+        shell: bash
+        run: |
+          cp assets/brand/app_icon.ico windows/runner/resources/app_icon.ico
+          sed -i 's/L"lamsat_pos"/L"\\x0644\\x0645\\x0633\\x0627\\x062a"/' windows/runner/main.cpp
+          grep -n 'window.Create' windows/runner/main.cpp
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test

@@ -1,0 +1,515 @@
+import 'package:flutter/material.dart';
+
+import '../../core/api.dart';
+import '../../core/money.dart';
+import '../../core/theme.dart';
+import '../cash/cash_movement_dialog.dart';
+import '../cash/close_shift_dialog.dart';
+import '../cash/shift_gate.dart';
+import '../printing/printer_settings_dialog.dart';
+
+/// هيكل صفحة: عنوان، أدوات، ومحتوى داخل بطاقة بيضاء.
+class _Page extends StatelessWidget {
+  final String title;
+  final List<Widget> tools;
+  final Widget child;
+  const _Page({required this.title, this.tools = const [], required this.child});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(width: 16), ...tools]),
+          const SizedBox(height: 10),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Brand.line), borderRadius: BorderRadius.circular(12)),
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            ),
+          ),
+        ]),
+      );
+}
+
+Widget _note(String text, {bool bad = false}) =>
+    Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 17, color: bad ? Brand.bad : Brand.muted))));
+
+Widget _cell(String t, {int flex = 1, bool num = false, bool bold = false, Color? color}) => Expanded(
+      flex: flex,
+      child: Text(t,
+          overflow: TextOverflow.ellipsis,
+          textDirection: num ? TextDirection.ltr : null,
+          textAlign: num ? TextAlign.right : null,
+          style: TextStyle(fontSize: 16, fontWeight: bold ? FontWeight.w700 : FontWeight.w400, color: color)),
+    );
+
+Widget _head(List<(String, int)> cols) => Container(
+      color: Brand.ink,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(children: [for (final (t, f) in cols) Expanded(flex: f, child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)))]),
+    );
+
+String _fail(Object e) => e is BusinessError ? errorMessage(e.code) : 'لا يوجد اتصال بالخادم.';
+
+// ───────────────────────── المخزون ─────────────────────────
+class InventoryPage extends StatefulWidget {
+  final ShiftContext ctx;
+  const InventoryPage({super.key, required this.ctx});
+  @override
+  State<InventoryPage> createState() => _InventoryState();
+}
+
+class _InventoryState extends State<InventoryPage> {
+  List<Map<String, dynamic>>? _rows;
+  String? _error;
+  String _filter = 'all', _q = '';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
+
+  Future<void> _load() async {
+    try {
+      final r = await Api.rpc('stock_report', {'p_branch_id': widget.ctx.branchId});
+      if (mounted) setState(() { _rows = (r as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList(); _error = null; });
+    } catch (e) {
+      if (mounted) setState(() => _error = _fail(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = (_rows ?? []).where((r) {
+      final q = (r['qty'] as num);
+      if (_filter == 'low' && !(q > 0 && q <= 3)) return false;
+      if (_filter == 'out' && q > 0) return false;
+      return _q.isEmpty || '${r['name_ar']} ${r['sku']} ${r['tire_size'] ?? ''}'.toLowerCase().contains(_q.toLowerCase());
+    }).toList();
+    final showCost = rows.any((r) => r['value_baisa'] != null);
+    final low = (_rows ?? []).where((r) => (r['qty'] as num) > 0 && (r['qty'] as num) <= 3).length;
+    final out = (_rows ?? []).where((r) => (r['qty'] as num) <= 0).length;
+    return _Page(
+      title: 'المخزون — ${widget.ctx.branchName}',
+      tools: [
+        SizedBox(width: 280, child: TextField(decoration: const InputDecoration(hintText: 'بحث بالاسم أو المقاس', isDense: true), onChanged: (v) => setState(() => _q = v.trim()))),
+        const SizedBox(width: 12),
+        SegmentedButton<String>(
+          segments: [const ButtonSegment(value: 'all', label: Text('الكل')), ButtonSegment(value: 'low', label: Text('منخفض ($low)')), ButtonSegment(value: 'out', label: Text('نافد ($out)'))],
+          selected: {_filter},
+          onSelectionChanged: (s) => setState(() => _filter = s.first),
+        ),
+        const Spacer(),
+        OutlinedButton(onPressed: _load, child: const Text('تحديث')),
+      ],
+      child: _error != null
+          ? _note(_error!, bad: true)
+          : _rows == null
+              ? const Center(child: CircularProgressIndicator())
+              : Column(children: [
+                  _head([('الصنف', 5), ('المقاس', 2), ('المتوفر', 2), ('سعر البيع', 2), if (showCost) ('قيمة المخزون', 2), ('الحالة', 2)]),
+                  Expanded(
+                    child: rows.isEmpty
+                        ? _note('لا توجد أصناف مطابقة.')
+                        : ListView.separated(
+                            itemCount: rows.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: Brand.line),
+                            itemBuilder: (_, i) {
+                              final r = rows[i];
+                              final q = r['qty'] as num;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                child: Row(children: [
+                                  _cell('${r['name_ar']}', flex: 5, bold: true),
+                                  _cell('${r['tire_size'] ?? '—'}', flex: 2, num: true),
+                                  _cell('$q ${r['unit']}', flex: 2),
+                                  _cell(formatOmr((r['price_baisa'] as num).toInt()), flex: 2, num: true),
+                                  if (showCost) _cell(r['value_baisa'] == null ? '—' : formatOmr((r['value_baisa'] as num).toInt()), flex: 2, num: true),
+                                  _cell(q <= 0 ? 'نافد' : (q <= 3 ? 'منخفض' : 'متوفر'), flex: 2, bold: true, color: q <= 0 ? Brand.bad : (q <= 3 ? const Color(0xFF9A5B00) : Brand.ok)),
+                                ]),
+                              );
+                            }),
+                  ),
+                ]),
+    );
+  }
+}
+
+// ───────────────────────── المشتريات ─────────────────────────
+class PurchasesPage extends StatefulWidget {
+  final ShiftContext ctx;
+  const PurchasesPage({super.key, required this.ctx});
+  @override
+  State<PurchasesPage> createState() => _PurchasesState();
+}
+
+class _PurchasesState extends State<PurchasesPage> {
+  List<Map<String, dynamic>>? _rows;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      try {
+        final r = await Api.client.from('purchase_receipts').select('id, reference, total_cost_baisa, created_at').eq('branch_id', widget.ctx.branchId)
+            .order('created_at', ascending: false).limit(100).timeout(const Duration(seconds: 12));
+        if (mounted) setState(() => _rows = r.cast<Map<String, dynamic>>());
+      } catch (_) {
+        if (mounted) setState(() => _error = 'تعذّر تحميل المشتريات. تحقق من الاتصال.');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => _Page(
+        title: 'المشتريات — ${widget.ctx.branchName}',
+        child: !widget.ctx.permissions.contains('inventory.cost.view')
+            ? _note('عرض المشتريات يتطلب صلاحية مدير الفرع أو المالك.')
+            : _error != null
+                ? _note(_error!, bad: true)
+                : _rows == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Column(children: [
+                        _head([('التاريخ', 3), ('رقم فاتورة المورّد', 4), ('الإجمالي بالتكلفة', 3)]),
+                        Expanded(
+                          child: _rows!.isEmpty
+                              ? _note('لا توجد مشتريات مستلمة بعد.')
+                              : ListView.separated(
+                                  itemCount: _rows!.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1, color: Brand.line),
+                                  itemBuilder: (_, i) {
+                                    final r = _rows![i];
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                      child: Row(children: [
+                                        _cell('${r['created_at']}'.substring(0, 10), flex: 3, num: true),
+                                        _cell('${r['reference'] ?? '—'}', flex: 4),
+                                        _cell(formatOmr((r['total_cost_baisa'] as num).toInt()), flex: 3, num: true, bold: true),
+                                      ]),
+                                    );
+                                  }),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text('استلام مشتريات جديدة وإضافة الأصناف يتمّان حاليًا من لوحة الإدارة (المخزون والمشتريات). نقلهما إلى هذه الشاشة ضمن العمل القادم.', style: TextStyle(color: Brand.muted)),
+                        ),
+                      ]),
+      );
+}
+
+// ───────────────────────── العملاء ─────────────────────────
+class CustomersPage extends StatefulWidget {
+  final ShiftContext ctx;
+  const CustomersPage({super.key, required this.ctx});
+  @override
+  State<CustomersPage> createState() => _CustomersState();
+}
+
+class _CustomersState extends State<CustomersPage> {
+  List<Map<String, dynamic>> _customers = [];
+  List<Map<String, dynamic>>? _invoices;
+  Map<String, dynamic>? _selected;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _search(''));
+  }
+
+  Future<void> _search(String raw) async {
+    final q = raw.replaceAll(RegExp(r'[^0-9A-Za-z؀-ۿ ]'), '').trim();
+    try {
+      var query = Api.client.from('customers').select('id, name, phone');
+      if (q.isNotEmpty) query = query.or('phone.ilike.%$q%,name.ilike.%$q%');
+      final r = await query.order('created_at', ascending: false).limit(50).timeout(const Duration(seconds: 12));
+      if (mounted) setState(() { _customers = r.cast<Map<String, dynamic>>(); _error = null; });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'تعذّر تحميل العملاء. تحقق من الاتصال.');
+    }
+  }
+
+  Future<void> _select(Map<String, dynamic> c) async {
+    setState(() { _selected = c; _invoices = null; });
+    if (c['phone'] == null) {
+      setState(() => _invoices = []);
+      return;
+    }
+    try {
+      final r = await Api.rpc('list_invoices', {'p_branch_id': null, 'p_from': '2000-01-01', 'p_to': '2100-01-01', 'p_search': c['phone'], 'p_limit': 50});
+      if (mounted) setState(() => _invoices = (r as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList());
+    } catch (e) {
+      if (mounted) setState(() { _invoices = []; _error = _fail(e); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _Page(
+        title: 'العملاء',
+        tools: [SizedBox(width: 320, child: TextField(autofocus: true, decoration: const InputDecoration(hintText: 'بحث بالاسم أو الهاتف', isDense: true), onChanged: _search))],
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SizedBox(
+            width: 380,
+            child: _error != null && _customers.isEmpty
+                ? _note(_error!, bad: true)
+                : ListView(children: [
+                    for (final c in _customers)
+                      ListTile(
+                        selected: _selected?['id'] == c['id'],
+                        title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: c['phone'] == null ? null : Text('${c['phone']}', textDirection: TextDirection.ltr),
+                        onTap: () => _select(c),
+                      ),
+                    if (_customers.isEmpty) _note('لا يوجد عملاء مطابقون. أضف العميل من شاشة البيع (F3).'),
+                  ]),
+          ),
+          const VerticalDivider(width: 1, color: Brand.line),
+          Expanded(
+            child: _selected == null
+                ? _note('اختر عميلًا لعرض فواتيره.')
+                : _invoices == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Padding(padding: const EdgeInsets.all(14), child: Text('${_selected!['name']} · ${_selected!['phone'] ?? 'بلا هاتف'}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                        _head([('التاريخ', 2), ('الفاتورة', 3), ('اللوحة', 2), ('المبلغ', 2)]),
+                        Expanded(
+                          child: _invoices!.isEmpty
+                              ? _note('لا توجد فواتير لهذا العميل ضمن الفروع المتاحة لك.')
+                              : ListView(children: [
+                                  for (final r in _invoices!)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      child: Row(children: [
+                                        _cell('${r['business_date']}', flex: 2, num: true),
+                                        _cell('${r['invoice_no']}${r['status'] == 'voided' ? ' (ملغاة)' : ''}', flex: 3, num: true, bold: true),
+                                        _cell('${r['plate'] ?? '—'}', flex: 2),
+                                        _cell(formatOmr((r['total_baisa'] as num).toInt()), flex: 2, num: true),
+                                      ]),
+                                    ),
+                                ]),
+                        ),
+                      ]),
+          ),
+        ]),
+      );
+}
+
+// ───────────────────────── اليومية ─────────────────────────
+class DayPage extends StatefulWidget {
+  final ShiftContext ctx;
+  final VoidCallback onChanged;
+  final Future<void> Function() onOpenShift;
+  const DayPage({super.key, required this.ctx, required this.onChanged, required this.onOpenShift});
+  @override
+  State<DayPage> createState() => _DayState();
+}
+
+class _DayState extends State<DayPage> {
+  Map<String, dynamic>? _s;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
+
+  Future<void> _load() async {
+    final sid = widget.ctx.sessionId;
+    if (sid == null) return;
+    try {
+      final r = (await Api.rpc('cash_session_summary', {'p_cash_session_id': sid}) as Map).cast<String, dynamic>();
+      if (mounted) setState(() { _s = r; _error = null; });
+    } catch (e) {
+      if (mounted) setState(() => _error = _fail(e));
+    }
+  }
+
+  Widget _tile(String label, String value, {Color? color}) => Container(
+        width: 250,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Brand.bg, borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Brand.muted, fontSize: 14)),
+          const SizedBox(height: 6),
+          Text(value, textDirection: TextDirection.ltr, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: color ?? Brand.ink)),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.ctx;
+    final sid = c.sessionId;
+    int n(String k) => (_s?[k] as num?)?.toInt() ?? 0;
+    return _Page(
+      title: 'اليومية — وردية ${c.userName}',
+      tools: sid == null
+          ? []
+          : [
+              const Spacer(),
+              if (c.permissions.contains('cash.movement'))
+                OutlinedButton(
+                    onPressed: () async {
+                      await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => CashMovementDialog(sessionId: sid));
+                      await _load();
+                    },
+                    child: const Text('مصروف أو قبض نقدي')),
+              const SizedBox(width: 8),
+              if (c.permissions.contains('cash.close'))
+                FilledButton(
+                    onPressed: () async {
+                      final closed = await showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => CloseShiftDialog(sessionId: sid));
+                      if (closed == true) widget.onChanged();
+                    },
+                    child: const Text('إغلاق الوردية')),
+            ],
+      child: sid == null
+          ? Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(c.canOpenShift ? 'لا توجد وردية مفتوحة لحسابك.' : 'الورديات غير مفعّلة لدور هذا الحساب. يفعّلها المالك من الإعدادات.', style: const TextStyle(fontSize: 18, color: Brand.muted)),
+                const SizedBox(height: 14),
+                if (c.canOpenShift) FilledButton(onPressed: widget.onOpenShift, child: const Text('فتح وردية')),
+              ]),
+            )
+          : _error != null
+              ? _note(_error!, bad: true)
+              : _s == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Wrap(spacing: 12, runSpacing: 12, children: [
+                          _tile('مبيعات نقدية', formatOmr(n('cash_sales_baisa'))),
+                          _tile('مبيعات بطاقة (خارج الدرج)', formatOmr(n('card_baisa'))),
+                          _tile('إجمالي المبيعات', formatOmr(n('total_sales_baisa'))),
+                          _tile('عدد الفواتير', '${n('invoice_count')}'),
+                        ]),
+                        const SizedBox(height: 20),
+                        const Text('مطابقة الصندوق', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 10),
+                        Wrap(spacing: 12, runSpacing: 12, children: [
+                          _tile('الرصيد الافتتاحي', formatOmr(n('opening_cash_baisa'))),
+                          _tile('+ مبيعات نقدية', formatOmr(n('cash_sales_baisa'))),
+                          _tile('± مصروفات وقبض ومرتجعات', formatOmr(n('cash_other_baisa')), color: n('cash_other_baisa') < 0 ? Brand.bad : null),
+                          _tile('المتوقع في الصندوق', formatOmr(n('expected_cash_baisa')), color: Brand.ok),
+                        ]),
+                        const SizedBox(height: 16),
+                        const Text('عند الإغلاق تُدخل المبلغ الفعلي بعد العدّ، ويُسجَّل العجز أو الزيادة بسببه. بعد الإغلاق لا تُقبل فواتير على هذه الوردية.', style: TextStyle(color: Brand.muted)),
+                      ]),
+                    ),
+    );
+  }
+}
+
+// ───────────────────────── التقارير ─────────────────────────
+class ReportsPage extends StatefulWidget {
+  final ShiftContext ctx;
+  const ReportsPage({super.key, required this.ctx});
+  @override
+  State<ReportsPage> createState() => _ReportsState();
+}
+
+class _ReportsState extends State<ReportsPage> {
+  Map<String, dynamic>? _d;
+  String? _error;
+  int _days = 0; // 0 اليوم، 6 الأسبوع، 29 الشهر
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
+
+  String _date(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _load() async {
+    final today = DateTime.now().toUtc().add(const Duration(hours: 4)); // مسقط
+    try {
+      final r = (await Api.rpc('dashboard_summary', {'p_branch_id': widget.ctx.branchId, 'p_from': _date(today.subtract(Duration(days: _days))), 'p_to': _date(today)}) as Map)
+          .cast<String, dynamic>();
+      if (mounted) setState(() { _d = r; _error = null; });
+    } catch (e) {
+      if (mounted) setState(() => _error = _fail(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int n(String k) => (_d?[k] as num?)?.toInt() ?? 0;
+    Widget tile(String label, String value) => Container(
+          width: 250,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Brand.bg, borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: Brand.muted, fontSize: 14)),
+            const SizedBox(height: 6),
+            Text(value, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+          ]),
+        );
+    return _Page(
+      title: 'التقارير — ${widget.ctx.branchName}',
+      tools: [
+        SegmentedButton<int>(
+          segments: const [ButtonSegment(value: 0, label: Text('اليوم')), ButtonSegment(value: 6, label: Text('الأسبوع')), ButtonSegment(value: 29, label: Text('الشهر'))],
+          selected: {_days},
+          onSelectionChanged: (s) {
+            setState(() { _days = s.first; _d = null; });
+            _load();
+          },
+        ),
+      ],
+      child: !widget.ctx.permissions.contains('reports.view')
+          ? _note('التقارير متاحة لمدير الفرع والمحاسب والمالك.')
+          : _error != null
+              ? _note(_error!, bad: true)
+              : _d == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Wrap(spacing: 12, runSpacing: 12, children: [
+                        tile('المبيعات شاملة الضريبة', formatOmr(n('total_baisa'))),
+                        tile('صافي المبيعات بعد المرتجعات', formatOmr(n('net_sales_baisa'))),
+                        tile('عدد الفواتير', '${n('invoice_count')}'),
+                        tile('نقدي', formatOmr(n('cash_baisa'))),
+                        tile('بطاقة', formatOmr(n('card_baisa'))),
+                        tile('ضريبة القيمة المضافة', formatOmr(n('tax_baisa'))),
+                        tile('المرتجعات', formatOmr(n('refunds_baisa'))),
+                        tile('الخصومات', formatOmr(n('discount_baisa'))),
+                        tile('مجمل الربح', _d!['gross_profit_baisa'] == null ? '—' : formatOmr(n('gross_profit_baisa'))),
+                      ]),
+                    ),
+    );
+  }
+}
+
+// ───────────────────────── الإعدادات ─────────────────────────
+class SettingsPage extends StatelessWidget {
+  final ShiftContext ctx;
+  const SettingsPage({super.key, required this.ctx});
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String k, String v) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [SizedBox(width: 220, child: Text(k, style: const TextStyle(color: Brand.muted, fontSize: 16))), Expanded(child: Text(v, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)))]),
+        );
+    return _Page(
+      title: 'الإعدادات',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          row('الفرع', ctx.branchName),
+          row('الصندوق', '${ctx.deviceName} (${Api.config.deviceCode})'),
+          row('المستخدم', ctx.userName),
+          row('الضريبة', ctx.tax.enabled ? '${formatQty(ctx.tax.rateBp * 10)}%${ctx.tax.pricesIncludeTax ? ' ضمن السعر' : ' تُضاف على السعر'}' : 'غير مفعّلة'),
+          row('الورديات لهذا الحساب', ctx.canOpenShift ? 'مفعّلة' : 'غير مفعّلة — للاطلاع فقط'),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: () => showDialog<void>(context: context, builder: (_) => const PrinterSettingsDialog()), child: const Text('الطابعة ونوعها (حرارية أو A4)')),
+          const SizedBox(height: 18),
+          const Text('إعدادات الفرع (من يفتح الورديات، الضريبة، نص الفاتورة) والأصناف والأسعار يضبطها المالك من لوحة الإدارة حاليًا.', style: TextStyle(color: Brand.muted)),
+        ]),
+      ),
+    );
+  }
+}
