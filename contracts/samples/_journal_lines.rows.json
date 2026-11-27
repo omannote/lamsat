@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "5ec566ae-9730-4d8b-98b3-85d87b2435a0",
+    "debit_baisa": 66000,
+    "credit_baisa": 0
+  },
+  {
+    "id": 2,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "623afabe-354c-443a-8c1b-65f295dae648",
+    "debit_baisa": 50000,
+    "credit_baisa": 0
+  },
+  {
+    "id": 3,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "02791838-33ce-4056-96d2-ff021d4eb52b",
+    "debit_baisa": 0,
+    "credit_baisa": 106667
+  },
+  {
+    "id": 4,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "adbba50a-869f-4915-81bd-0a331db8fa43",
+    "debit_baisa": 0,
+    "credit_baisa": 3810
+  },
+  {
+    "id": 5,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "deb19642-d724-44f8-94b3-0a1ee7316fe4",
+    "debit_baisa": 0,
+    "credit_baisa": 5523
+  },
+  {
+    "id": 6,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "a26eb48a-ae4e-494c-b285-f04df43a3593",
+    "debit_baisa": 74000,
+    "credit_baisa": 0
+  },
+  {
+    "id": 7,
+    "entry_id": "edefd459-b191-45e0-916c-1c2fbd013774",
+    "account_id": "47baf44a-550c-4bb6-a02f-bb1d87dc1aa7",
+    "debit_baisa": 0,
+    "credit_baisa": 74000
+  },
+  {
+    "id": 8,
+    "entry_id": "fd0ac187-d1a6-400e-ae75-b3dffefbf956",
+    "account_id": "8b85fdce-43ad-409f-b7f1-d2294e99313d",
+    "debit_baisa": 500,
+    "credit_baisa": 0
+  },
+  {
+    "id": 9,
+    "entry_id": "fd0ac187-d1a6-400e-ae75-b3dffefbf956",
+    "account_id": "5ec566ae-9730-4d8b-98b3-85d87b2435a0",
+    "debit_baisa": 0,
+    "credit_baisa": 500
+  }
+]

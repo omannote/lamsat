@@ -75,3 +75,14 @@ tfoot td { border-bottom: 0; background: #fafbfb; color: var(--muted); }
 .badge.open { background: #fff4e5; color: #9a5b00; }
 .num.neg { color: var(--bad); }
 .note { font-size: .75rem; font-weight: 400; color: var(--muted); direction: rtl; white-space: normal; max-width: 12rem; }
+.notice.ok { background: #e7f6ee; border-color: #b9e2cb; color: var(--ok); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .8rem; align-items: end; }
+.form-grid label, form.card label { display: grid; gap: .3rem; font-size: .88rem; color: var(--muted); }
+.form-grid input, .form-grid select, table.lines input, table.lines select { width: 100%; }
+.span-all { grid-column: 1 / -1; } .span-2 { grid-column: span 2; }
+label.check { display: flex !important; align-items: center; gap: .4rem; color: var(--ink) !important; }
+.inline3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .3rem; }
+.actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .8rem; }
+table.lines { margin: .8rem 0; } table.lines td { white-space: normal; }
+.btn.danger { background: #fff; border-color: #f0b4ad; color: var(--bad); font-weight: 600; }
+.card > .page-head { margin-bottom: .6rem; } .card .audit li { gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: .4rem; }

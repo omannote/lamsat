@@ -29,6 +29,9 @@ try {
   save('close_cash_session.response', await db.rpc(ID.cashierTyr, 'close_cash_session', [uuid(), open.session.id, 85500, 'نقص 500 بيسة في الفكة']));
   await db.rpc(ID.cashierTnt, 'open_cash_session', [uuid(), ID.devTnt, 10000]);
   save('list_cash_sessions.response', await db.rpc(ID.owner, 'list_cash_sessions', [null, '2000-01-01', '2100-01-01']));
+  save('stock_report.response', await db.rpc(ID.owner, 'stock_report', [ID.tyr]));
+  save('invoice_refund_state.response', await db.rpc(ID.owner, 'invoice_refund_state', [res.invoice.id]));
+  save('_products.rows', await db.sql('select * from products order by category, name_ar'));
   save('owner_context.response', await db.rpc(ID.owner, 'my_context', []));
   const j = await db.sql(`select l.id, l.entry_id, l.account_id, l.debit_baisa, l.credit_baisa from journal_lines l order by l.id`);
   save('_journal_lines.rows', j);

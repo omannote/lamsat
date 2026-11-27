@@ -12,4 +12,4 @@
 | `tests/scenarios` | اختبارات السيناريوهات على PostgreSQL حقيقي |
 | `docs` | المعمارية، الإعداد، دليل الكاشير، الصلاحيات، حالة المراحل |
 
-ابدأ من [`docs/phase1-status.md`](docs/phase1-status.md) لمعرفة ما يعمل فعليًا وما ينتظر تحققًا، ثم [`docs/dev-setup.md`](docs/dev-setup.md).
+ابدأ من [`docs/status.md`](docs/status.md) لمعرفة ما يعمل فعليًا وما ينتظر تحققًا، ثم [`docs/dev-setup.md`](docs/dev-setup.md).

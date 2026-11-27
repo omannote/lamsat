@@ -1,0 +1,116 @@
+[
+  {
+    "qty": 0,
+    "sku": "AC-HOLDER",
+    "lots": [],
+    "unit": "قطعة",
+    "name_ar": "حامل هاتف مغناطيسي",
+    "category": "accessory",
+    "is_active": true,
+    "tire_size": null,
+    "product_id": "e0000000-0000-4000-8000-000000000032",
+    "price_baisa": 3500,
+    "value_baisa": 0
+  },
+  {
+    "qty": 0,
+    "sku": "AC-MATS",
+    "lots": [],
+    "unit": "طقم",
+    "name_ar": "دعاسات أرضية طقم",
+    "category": "accessory",
+    "is_active": true,
+    "tire_size": null,
+    "product_id": "e0000000-0000-4000-8000-000000000031",
+    "price_baisa": 12000,
+    "value_baisa": 0
+  },
+  {
+    "qty": 8,
+    "sku": "TR-2055516-BS",
+    "lots": [
+      {
+        "qty": 8,
+        "lot_id": "779bc100-2260-491a-99bf-4fa735eff62d",
+        "dot_code": "DOT 3526",
+        "lot_code": "L-B",
+        "received_at": "2026-11-07T09:03:36.743633+04:00",
+        "unit_cost_baisa": 19000
+      }
+    ],
+    "unit": "حبة",
+    "name_ar": "إطار بريجستون 205/55R16",
+    "category": "tire",
+    "is_active": true,
+    "tire_size": "205/55R16",
+    "product_id": "e0000000-0000-4000-8000-000000000001",
+    "price_baisa": 29000,
+    "value_baisa": 152000
+  },
+  {
+    "qty": 8,
+    "sku": "TR-2156016-MI",
+    "lots": [
+      {
+        "qty": 8,
+        "lot_id": "93bc7442-b2c9-42dd-b4dc-fa181a9099c5",
+        "dot_code": "DOT 3026",
+        "lot_code": "L-A",
+        "received_at": "2026-10-28T09:03:36.743633+04:00",
+        "unit_cost_baisa": 24000
+      }
+    ],
+    "unit": "حبة",
+    "name_ar": "إطار ميشلان 215/60R16",
+    "category": "tire",
+    "is_active": true,
+    "tire_size": "215/60R16",
+    "product_id": "e0000000-0000-4000-8000-000000000002",
+    "price_baisa": 34500,
+    "value_baisa": 192000
+  },
+  {
+    "qty": 1,
+    "sku": "TR-1856515-HK",
+    "lots": [
+      {
+        "qty": 1,
+        "lot_id": "b3f06766-e250-42cf-9517-d32713c8f5a2",
+        "dot_code": "DOT 1526",
+        "lot_code": "L-A",
+        "received_at": "2026-08-29T09:03:36.743633+04:00",
+        "unit_cost_baisa": 13000
+      }
+    ],
+    "unit": "حبة",
+    "name_ar": "إطار هانكوك 185/65R15",
+    "category": "tire",
+    "is_active": true,
+    "tire_size": "185/65R15",
+    "product_id": "e0000000-0000-4000-8000-000000000004",
+    "price_baisa": 19500,
+    "value_baisa": 13000
+  },
+  {
+    "qty": 4,
+    "sku": "TR-2656517-YK",
+    "lots": [
+      {
+        "qty": 4,
+        "lot_id": "404a6d33-5ac0-480b-b83f-ba31f60a6fb0",
+        "dot_code": "DOT 2826",
+        "lot_code": "L-A",
+        "received_at": "2026-10-28T09:03:36.743633+04:00",
+        "unit_cost_baisa": 38000
+      }
+    ],
+    "unit": "حبة",
+    "name_ar": "إطار يوكوهاما 265/65R17",
+    "category": "tire",
+    "is_active": true,
+    "tire_size": "265/65R17",
+    "product_id": "e0000000-0000-4000-8000-000000000003",
+    "price_baisa": 52000,
+    "value_baisa": 152000
+  }
+]

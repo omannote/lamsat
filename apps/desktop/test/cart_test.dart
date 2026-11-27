@@ -66,6 +66,18 @@ void main() {
     expect(s, isNull);
   });
 
+  test('المسودة تُحفظ وتُستعاد بالكميات والخصم والعميل', () {
+    final c = Cart()..add(_p('tire', 28000));
+    c.lines[0].qtyMilli = 4000;
+    c.lines[0].discountBaisa = 2000;
+    c.customer = const CustomerRef(id: 'c1', name: 'سالم', plate: '777');
+    final d = Cart()..loadDraft(c.toDraft());
+    expect(d.lines.single.qtyMilli, 4000);
+    expect(d.lines.single.discountBaisa, 2000);
+    expect(d.total(inclusive), c.total(inclusive));
+    expect(d.customer!.plate, '777');
+  });
+
   test('الحمولة ثابتة عند إعادة الإرسال', () {
     final c = Cart()..add(_p('a', 1000));
     final p = c.toPayload(cashSessionId: 's', tax: inclusive, cashBaisa: 1000, cardBaisa: 0, cashTenderedBaisa: 5000);

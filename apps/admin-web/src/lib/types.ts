@@ -37,7 +37,7 @@ export interface CashSessionRow {
 
 export interface Summary {
   invoice_count: number; net_sales_baisa: number; tax_baisa: number; total_baisa: number; discount_baisa: number;
-  cash_baisa: number; card_baisa: number; gross_profit_baisa: number | null;
+  cash_baisa: number; card_baisa: number; gross_profit_baisa: number | null; refunds_baisa?: number;
 }
 
 export const can = (ctx: Ctx, perm: string, branchId?: string | null) =>

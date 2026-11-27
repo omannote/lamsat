@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatOmr, muscatToday } from './money';
+import { formatOmr, muscatToday, parseOmr } from './money';
 
 describe('formatOmr', () => {
   it('يعرض ثلاث خانات للبيسة', () => {
@@ -10,6 +10,16 @@ describe('formatOmr', () => {
     expect(formatOmr(1234567890)).toBe('1,234,567.890');
     expect(formatOmr(-4500)).toBe('-4.500');
     expect(formatOmr(null)).toBe('—');
+  });
+});
+
+describe('parseOmr', () => {
+  it('يحلل المبالغ إلى بيسة بلا كسور عشرية', () => {
+    expect(parseOmr('12.5')).toBe(12500);
+    expect(parseOmr('0.005')).toBe(5);
+    expect(parseOmr('28')).toBe(28000);
+    expect(parseOmr('1.2345')).toBeNull();
+    expect(parseOmr('abc')).toBeNull();
   });
 });
 

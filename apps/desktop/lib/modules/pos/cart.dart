@@ -19,6 +19,12 @@ class Product {
     required this.wholeUnitsOnly, required this.trackStock, required this.taxable, required this.exactBarcode,
     required this.unitPriceBaisa, this.stockQty,
   });
+  Map<String, dynamic> toJson() => {
+        'product_id': id, 'sku': sku, 'kind': kind, 'name_ar': nameAr, 'unit': unit, 'tire_size': tireSize,
+        'whole_units_only': wholeUnitsOnly, 'track_stock': trackStock, 'taxable': taxable, 'exact_barcode': false,
+        'unit_price_baisa': unitPriceBaisa, 'stock_qty': stockQty,
+      };
+
   factory Product.fromJson(Map<String, dynamic> j) => Product(
         id: j['product_id'] as String, sku: j['sku'] as String, kind: j['kind'] as String, nameAr: j['name_ar'] as String,
         unit: j['unit'] as String, tireSize: j['tire_size'] as String?,
@@ -74,6 +80,31 @@ class Cart {
   void clear() {
     lines.clear();
     customer = null;
+  }
+
+  /// لقطة السلة للمسودة. الأسعار تُراجَع من الخادم عند الاعتماد (تأكيد تغيّر السعر).
+  Map<String, dynamic> toDraft() => {
+        'lines': [
+          for (final l in lines)
+            {'product': l.product.toJson(), 'qty_milli': l.qtyMilli, 'unit_price_baisa': l.unitPriceBaisa, 'discount_baisa': l.discountBaisa}
+        ],
+        if (customer != null)
+          'customer': {'id': customer!.id, 'name': customer!.name, 'phone': customer!.phone, 'vehicle_id': customer!.vehicleId, 'plate': customer!.plate},
+      };
+
+  void loadDraft(Map<String, dynamic> d) {
+    clear();
+    for (final raw in ((d['lines'] as List?) ?? const [])) {
+      final m = (raw as Map).cast<String, dynamic>();
+      final line = CartLine(Product.fromJson((m['product'] as Map).cast<String, dynamic>()),
+          qtyMilli: (m['qty_milli'] as num).toInt(), discountBaisa: (m['discount_baisa'] as num?)?.toInt() ?? 0);
+      line.unitPriceBaisa = (m['unit_price_baisa'] as num?)?.toInt() ?? line.unitPriceBaisa;
+      lines.add(line);
+    }
+    final c = (d['customer'] as Map?)?.cast<String, dynamic>();
+    if (c != null) {
+      customer = CustomerRef(id: c['id'] as String, name: c['name'] as String, phone: c['phone'] as String?, vehicleId: c['vehicle_id'] as String?, plate: c['plate'] as String?);
+    }
   }
 
   int subtotal() => lines.fold(0, (s, l) => s + l.gross);

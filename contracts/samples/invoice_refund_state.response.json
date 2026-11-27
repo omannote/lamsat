@@ -1,0 +1,34 @@
+{
+  "lines": [
+    {
+      "qty": 4,
+      "kind": "item",
+      "unit": "حبة",
+      "line_no": 1,
+      "total_baisa": 112000,
+      "track_stock": true,
+      "refunded_qty": 0,
+      "remaining_qty": 4,
+      "description_ar": "إطار بريجستون 205/55R16",
+      "refunded_baisa": 0,
+      "remaining_baisa": 112000
+    },
+    {
+      "qty": 4,
+      "kind": "service",
+      "unit": "خدمة",
+      "line_no": 2,
+      "total_baisa": 4000,
+      "track_stock": false,
+      "refunded_qty": 0,
+      "remaining_qty": 4,
+      "description_ar": "تركيب إطار",
+      "refunded_baisa": 0,
+      "remaining_baisa": 4000
+    }
+  ],
+  "status": "approved",
+  "refunds": [],
+  "invoice_id": "5cfac5e5-a0d0-47ac-a943-a30f10b90cbe",
+  "open_sessions": []
+}

@@ -5,7 +5,7 @@
 
 **الحالة (2026-11-27):** الترحيلات الست والبيانات التجريبية مطبّقة على هذا المشروع، ضمن منظمة `lamast`.
 
-لإعادة التطبيق على مشروع جديد: الصق `supabase/phase1_all.sql` في محرر SQL (أو `supabase db push`)، ثم في جلسة واحدة:
+لإعادة التطبيق على مشروع جديد: الصق `supabase/all_migrations.sql` في محرر SQL (أو `supabase db push`)، ثم في جلسة واحدة:
 ```sql
 set lamsat.demo_password = 'كلمة-مرور-تجريبية-من-10-أحرف-فأكثر';
 -- ثم محتوى supabase/seed/00_dev_users.sql ثم supabase/seed/10_demo_data.sql

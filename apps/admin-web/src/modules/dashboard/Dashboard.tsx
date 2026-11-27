@@ -30,6 +30,7 @@ export function Dashboard({ ctx }: { ctx: Ctx }) {
     ['مدفوعات بطاقة', formatOmr(data.card_baisa)],
     ['الضريبة', formatOmr(data.tax_baisa)],
     ['الخصومات', formatOmr(data.discount_baisa)],
+    ['المرتجعات', formatOmr(data.refunds_baisa ?? 0)],
     ['الربح الإجمالي', formatOmr(data.gross_profit_baisa), data.gross_profit_baisa === null ? 'يتطلب صلاحية عرض التكلفة' : undefined],
   ] : [];
 
@@ -56,7 +57,7 @@ export function Dashboard({ ctx }: { ctx: Ctx }) {
           </div>
         ))}
       </section>
-      <p className="muted small">المبالغ بالريال العُماني. الفترة حسب اليوم المحاسبي. المرتجعات والمصروفات وفروقات الصندوق تُضاف في المرحلتين 2 و3.</p>
+      <p className="muted small">المبالغ بالريال العُماني. الفترة حسب اليوم المحاسبي. صافي المبيعات بعد طرح المرتجعات؛ الفواتير الملغاة مستبعدة.</p>
     </>
   );
 }

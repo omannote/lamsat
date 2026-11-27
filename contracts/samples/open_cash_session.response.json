@@ -1,12 +1,12 @@
 {
   "status": "opened",
   "session": {
-    "id": "1dc50ac6-25a0-4685-ab7c-aa78e3eac9e1",
+    "id": "d48c7f2e-3138-40ef-8db4-182f26eb0aac",
     "branch_id": "c0000000-0000-4000-8000-000000000002",
     "device_id": "d0000000-0000-4000-8000-000000000002",
-    "opened_at": "2026-11-27T01:36:54.713197+04:00",
+    "opened_at": "2026-11-27T09:03:36.762616+04:00",
     "business_date": "2026-11-27",
-    "business_day_id": "1f85e695-8432-494f-b4ac-494f160c1f84",
+    "business_day_id": "b2367baa-6525-442e-9d80-3a3189483bdd",
     "opening_cash_baisa": 20000
   },
   "replayed": false

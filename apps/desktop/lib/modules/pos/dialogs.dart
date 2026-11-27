@@ -29,20 +29,23 @@ String describeError(BusinessError e) {
   return errorMessage(e.code);
 }
 
-/// F1 والسلة فيها بنود: إجراء صريح. يعيد true إذا اختار الموظف تجاهل البنود.
-Future<bool> confirmDiscardCart(BuildContext context) async =>
-    await showDialog<bool>(
+enum CartChoice { keep, draft, discard }
+
+/// F1 والسلة فيها بنود: إجراء صريح — حفظ كمسودة، أو تجاهل البنود، أو متابعة الفاتورة.
+Future<CartChoice> confirmDiscardCart(BuildContext context) async =>
+    await showDialog<CartChoice>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('فاتورة جديدة'),
-        content: const SizedBox(width: 440, child: Text('السلة تحتوي على بنود. حفظها كمسودة يتوفر في المرحلة 2 (F6).', style: TextStyle(fontSize: 17))),
+        content: const SizedBox(width: 460, child: Text('السلة تحتوي على بنود. ماذا تريد أن تفعل بها؟', style: TextStyle(fontSize: 17))),
         actions: [
-          OutlinedButton(onPressed: () => Navigator.pop(c, true), child: const Text('تجاهل البنود وبدء فاتورة جديدة')),
-          FilledButton(autofocus: true, onPressed: () => Navigator.pop(c, false), child: const Text('متابعة الفاتورة الحالية')),
+          OutlinedButton(onPressed: () => Navigator.pop(c, CartChoice.discard), child: const Text('تجاهل البنود')),
+          OutlinedButton(onPressed: () => Navigator.pop(c, CartChoice.draft), child: const Text('حفظ كمسودة')),
+          FilledButton(autofocus: true, onPressed: () => Navigator.pop(c, CartChoice.keep), child: const Text('متابعة الفاتورة')),
         ],
       ),
     ) ??
-    false;
+    CartChoice.keep;
 
 /// F4: تعديل كمية السطر (والخصم إن كان مسموحًا).
 class LineEditDialog extends StatefulWidget {

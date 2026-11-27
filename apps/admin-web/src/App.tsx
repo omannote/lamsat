@@ -7,6 +7,8 @@ import { Dashboard } from './modules/dashboard/Dashboard';
 import { InvoiceList } from './modules/invoices/InvoiceList';
 import { InvoiceDetail } from './modules/invoices/InvoiceDetail';
 import { Sessions } from './modules/cash/Sessions';
+import { Catalog } from './modules/catalog/Catalog';
+import { Inventory } from './modules/inventory/Inventory';
 import logo from '/lamsat-logo.png';
 
 const useHash = () => {
@@ -57,6 +59,8 @@ export function App() {
     { key: 'dashboard', label: 'لوحة المؤشرات', show: can(ctx, 'reports.view') },
     { key: 'invoices', label: 'الفواتير', show: can(ctx, 'invoice.view') },
     { key: 'sessions', label: 'الورديات والإقفالات', show: can(ctx, 'reports.view') },
+    { key: 'catalog', label: 'الكتالوج', show: can(ctx, 'catalog.manage') || can(ctx, 'inventory.cost.view') },
+    { key: 'inventory', label: 'المخزون والمشتريات', show: can(ctx, 'inventory.cost.view') },
   ].filter((n) => n.show);
   const current = nav.some((n) => n.key === route) ? route : nav[0]?.key;
 
@@ -80,6 +84,8 @@ export function App() {
         {current === 'invoices' && !id && <InvoiceList ctx={ctx} />}
         {current === 'invoices' && id && <InvoiceDetail ctx={ctx} id={id} />}
         {current === 'sessions' && <Sessions ctx={ctx} />}
+        {current === 'catalog' && <Catalog ctx={ctx} />}
+        {current === 'inventory' && <Inventory ctx={ctx} />}
         {!current && <div className="card notice">لا توجد صفحات متاحة لصلاحياتك في لوحة الإدارة.</div>}
       </main>
     </div>

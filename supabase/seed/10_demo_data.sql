@@ -43,6 +43,8 @@ insert into public.accounts (organization_id, code, name_ar, name_en, account_ty
   ('b0000000-0000-4000-8000-000000000001', '5110', 'تكلفة البضاعة المباعة', 'Cost of goods sold', 'expense', 'cogs'),
   ('b0000000-0000-4000-8000-000000000001', '5910', 'فروقات الصندوق', 'Cash over/short', 'expense', 'cash_over_short');
 
+select app.ensure_system_accounts('b0000000-0000-4000-8000-000000000001');
+
 insert into public.products (id, organization_id, sku, kind, category, name_ar, name_en, brand, unit, track_stock, base_price_baisa, tire_width, tire_aspect, tire_rim) values
   ('e0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'TR-2055516-BS', 'item', 'tire', 'إطار بريجستون 205/55R16', 'Bridgestone 205/55R16', 'Bridgestone', 'حبة', true, 28000, 205, 55, 16),
   ('e0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'TR-2156016-MI', 'item', 'tire', 'إطار ميشلان 215/60R16', 'Michelin 215/60R16', 'Michelin', 'حبة', true, 34500, 215, 60, 16),

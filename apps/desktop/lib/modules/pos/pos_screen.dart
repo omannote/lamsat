@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/api.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../cash/cash_movement_dialog.dart';
 import '../cash/close_shift_dialog.dart';
 import '../cash/shift_gate.dart';
 import '../customers/customer_lookup_dialog.dart';
@@ -15,6 +16,7 @@ import '../printing/printer_settings_dialog.dart';
 import 'approving_dialog.dart';
 import 'cart.dart';
 import 'dialogs.dart';
+import 'drafts_dialog.dart';
 import 'payment_dialog.dart';
 import 'pending_operation.dart';
 
@@ -161,9 +163,11 @@ class _State extends State<PosScreen> {
     if (_dialogOpen) return;
     if (!_cart.isEmpty) {
       _dialogOpen = true;
-      final discard = await confirmDiscardCart(context);
+      final choice = await confirmDiscardCart(context);
       _dialogOpen = false;
-      if (!discard || !mounted) return _searchFocus.requestFocus();
+      if (!mounted) return;
+      if (choice == CartChoice.keep) return _searchFocus.requestFocus();
+      if (choice == CartChoice.draft) return _drafts();
     }
     setState(() {
       _cart.clear();
@@ -182,8 +186,20 @@ class _State extends State<PosScreen> {
   }
 
   Future<void> _pickCustomer() async {
-    final c = await _open<CustomerRef>(const CustomerLookupDialog());
+    final c = await _open<CustomerRef>(CustomerLookupDialog(branchId: shift.branchId));
     if (c != null && mounted) setState(() => _cart.customer = c);
+  }
+
+  /// F6: السلة فيها بنود ← حفظها كمسودة. السلة فارغة ← فتح مسودة محفوظة.
+  Future<void> _drafts() async {
+    if (_dialogOpen) return;
+    if (!_cart.isEmpty) {
+      final saved = await _open<bool>(SaveDraftDialog(sessionId: shift.sessionId, cart: _cart, totalBaisa: _cart.total(_tax)), dismissible: false);
+      if (saved == true && mounted) setState(() { _cart.clear(); _lineIndex = 0; });
+      return;
+    }
+    final payload = await _open<Map<String, dynamic>>(DraftListDialog(branchId: shift.branchId));
+    if (payload != null && mounted) setState(() { _cart.loadDraft(payload); _lineIndex = 0; });
   }
 
   /// F10: مراجعة إقفال الوردية حسب الصلاحية. السلة يجب أن تكون فارغة.
@@ -199,12 +215,6 @@ class _State extends State<PosScreen> {
     }
     final closed = await _open<bool>(CloseShiftDialog(sessionId: shift.sessionId), dismissible: false);
     if (closed == true) widget.onShiftClosed();
-  }
-
-  void _notYet(String what) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$what — ضمن المرحلة 2.')));
   }
 
   // ───────── الدفع والاعتماد ─────────
@@ -307,7 +317,10 @@ class _State extends State<PosScreen> {
         },
         const SingleActivator(LogicalKeyboardKey.f3): _pickCustomer,
         const SingleActivator(LogicalKeyboardKey.f4): _editLine,
-        const SingleActivator(LogicalKeyboardKey.f6): () => _notYet('المسودات وأوامر العمل'),
+        const SingleActivator(LogicalKeyboardKey.f5): () {
+          if (shift.permissions.contains('cash.movement')) _open<void>(CashMovementDialog(sessionId: shift.sessionId), dismissible: false);
+        },
+        const SingleActivator(LogicalKeyboardKey.f6): _drafts,
         const SingleActivator(LogicalKeyboardKey.f7): () => _open<void>(InvoiceHistoryDialog(branchId: shift.branchId, canReprint: shift.permissions.contains('invoice.reprint'))),
         const SingleActivator(LogicalKeyboardKey.f8): _pay,
         const SingleActivator(LogicalKeyboardKey.f10): _closeShift,
@@ -510,7 +523,7 @@ class _State extends State<PosScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         child: const Text(
-          'F1 فاتورة جديدة   F2 بحث   F3 عميل/مركبة   F4 كمية   ↑↓ تنقّل   Delete حذف سطر   F7 السجل   F8 الدفع   F10 إقفال الوردية   F12 الطابعة   Esc رجوع',
+          'F1 جديدة   F2 بحث   F3 عميل   F4 كمية   F5 قبض/صرف   F6 مسودات   Delete حذف سطر   F7 السجل   F8 الدفع   F10 إقفال الوردية   F12 الطابعة   Esc رجوع',
           style: TextStyle(color: Color(0xFFCFD9DD), fontSize: 14),
         ),
       );

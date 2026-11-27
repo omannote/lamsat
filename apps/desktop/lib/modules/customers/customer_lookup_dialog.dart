@@ -8,7 +8,8 @@ import '../pos/cart.dart';
 
 /// F3: البحث عن عميل بالهاتف أو الاسم، أو عن مركبة باللوحة، وربطه بالفاتورة.
 class CustomerLookupDialog extends StatefulWidget {
-  const CustomerLookupDialog({super.key});
+  final String branchId;
+  const CustomerLookupDialog({super.key, required this.branchId});
   @override
   State<CustomerLookupDialog> createState() => _State();
 }
@@ -19,11 +20,41 @@ class _State extends State<CustomerLookupDialog> {
   List<CustomerRef> _results = [];
   bool _loading = false;
   String? _error;
+  // نموذج عميل جديد
+  bool _adding = false, _saving = false;
+  final _name = TextEditingController(), _phone = TextEditingController(), _plate = TextEditingController();
+
+  Future<void> _saveNew() async {
+    if (_name.text.trim().isEmpty) {
+      setState(() => _error = 'اكتب اسم العميل.');
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
+    try {
+      final r = (await Api.rpc('save_customer', {
+        'p': {'branch_id': widget.branchId, 'name': _name.text.trim(), 'phone': _phone.text.trim(), 'plate': _plate.text.trim()}
+      }) as Map).cast<String, dynamic>();
+      final c = (r['customer'] as Map).cast<String, dynamic>();
+      final v = (r['vehicle'] as Map?)?.cast<String, dynamic>();
+      if (mounted) {
+        Navigator.pop(context, CustomerRef(id: c['id'] as String, name: c['name'] as String, phone: c['phone'] as String?, vehicleId: v?['id'] as String?, plate: v?['plate'] as String?));
+      }
+      return;
+    } on BusinessError catch (e) {
+      _error = errorMessage(e.code);
+    } on NoResponseError {
+      _error = 'لا يوجد اتصال. لم يُحفظ العميل.';
+    }
+    if (mounted) setState(() => _saving = false);
+  }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _q.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _plate.dispose();
     super.dispose();
   }
 
@@ -67,7 +98,20 @@ class _State extends State<CustomerLookupDialog> {
         content: SizedBox(
           width: 520,
           height: 380,
-          child: Column(children: [
+          child: _adding
+              ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  TextField(controller: _name, autofocus: true, decoration: const InputDecoration(labelText: 'اسم العميل'), textInputAction: TextInputAction.next),
+                  const SizedBox(height: 10),
+                  TextField(controller: _phone, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'الهاتف (مثال 9689XXXXXXX)'), textInputAction: TextInputAction.next),
+                  const SizedBox(height: 10),
+                  TextField(controller: _plate, decoration: const InputDecoration(labelText: 'رقم اللوحة (اختياري)'), onSubmitted: (_) => _saveNew()),
+                  if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(_error!, style: const TextStyle(color: Brand.bad))),
+                  const SizedBox(height: 14),
+                  FilledButton(onPressed: _saving ? null : _saveNew, child: Text(_saving ? 'جارٍ الحفظ…' : 'حفظ وربط بالفاتورة (Enter)')),
+                  const SizedBox(height: 6),
+                  const Text('إن كان الهاتف مسجلًا من قبل يُربط العميل الموجود وتُضاف له المركبة.', style: TextStyle(color: Brand.muted, fontSize: 13)),
+                ])
+              : Column(children: [
             TextField(
               controller: _q,
               autofocus: true,
@@ -89,11 +133,22 @@ class _State extends State<CustomerLookupDialog> {
                     onTap: () => Navigator.pop(context, r),
                   ),
                 if (_results.isEmpty && !_loading && _q.text.trim().length >= 2)
-                  const Padding(padding: EdgeInsets.all(16), child: Text('لا نتائج. إضافة عميل جديد تتوفر في المرحلة 2.', style: TextStyle(color: Brand.muted))),
+                  const Padding(padding: EdgeInsets.all(16), child: Text('لا نتائج. اضغط «عميل جديد» لإضافته.', style: TextStyle(color: Brand.muted))),
               ]),
             ),
           ]),
         ),
-        actions: [OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق (Esc)'))],
+        actions: [
+          if (!_adding)
+            OutlinedButton(
+                onPressed: () => setState(() {
+                      _adding = true;
+                      _error = null;
+                      final q = _q.text.trim();
+                      RegExp(r'^[0-9+ ]+$').hasMatch(q) ? _phone.text = q : _name.text = q;
+                    }),
+                child: const Text('عميل جديد')),
+          OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق (Esc)')),
+        ],
       );
 }

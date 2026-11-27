@@ -2,21 +2,23 @@ import { useEffect, useState } from 'react';
 import { rpc, supabase } from '../../lib/supabase';
 import { formatDateTime, formatOmr } from '../../lib/money';
 import { can, type Ctx, type Invoice } from '../../lib/types';
+import { RefundPanel } from './RefundPanel';
 
 interface JournalLine { account: string; debit_baisa: number; credit_baisa: number }
 interface AuditRow { id: number; action: string; created_at: string; user_id: string | null }
 
-const ACTIONS: Record<string, string> = { 'invoice.approve': 'اعتماد الفاتورة', 'invoice.reprint': 'إعادة طباعة' };
+const ACTIONS: Record<string, string> = { 'invoice.approve': 'اعتماد الفاتورة', 'invoice.reprint': 'إعادة طباعة', 'invoice.refund': 'مرتجع', 'invoice.void': 'إلغاء الفاتورة' };
 
 export function InvoiceDetail({ ctx, id }: { ctx: Ctx; id: string }) {
   const [inv, setInv] = useState<Invoice | null>(null);
   const [journal, setJournal] = useState<JournalLine[] | null>(null);
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setInv(null); setJournal(null); setAudit(null); setError(null);
+    setJournal(null); setAudit(null); setError(null);
     rpc<Invoice>('get_invoice', { p_invoice_id: id }).then(async (i) => {
       if (!alive) return;
       setInv(i);
@@ -40,7 +42,7 @@ export function InvoiceDetail({ ctx, id }: { ctx: Ctx; id: string }) {
       }
     }).catch((e: Error) => alive && setError(e.message === 'NOT_FOUND' ? 'الفاتورة غير موجودة أو لا تملك صلاحية عرضها.' : `تعذّر تحميل الفاتورة (${e.message}).`));
     return () => { alive = false; };
-  }, [id, ctx]);
+  }, [id, ctx, version]);
 
   if (error) return <div className="notice error">{error} <a href="#/invoices">العودة للقائمة</a></div>;
   if (!inv) return <div className="muted">جارٍ التحميل…</div>;
@@ -117,7 +119,8 @@ export function InvoiceDetail({ ctx, id }: { ctx: Ctx; id: string }) {
           <ul className="audit">{audit.map((a) => <li key={a.id}><span>{ACTIONS[a.action] ?? a.action}</span><span className="muted">{formatDateTime(a.created_at)}</span></li>)}</ul>
         </div>
       )}
-      <p className="muted small">التصحيح والإلغاء والمرتجع تُفعَّل في المرحلة 3 مع معاينة الأثر.</p>
+      <RefundPanel invoiceId={inv.id} canRefund={can(ctx, 'invoice.refund', inv.branch_id)} canVoid={can(ctx, 'invoice.void', inv.branch_id)}
+        onDone={() => setVersion((v) => v + 1)} />
     </>
   );
 }
