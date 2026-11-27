@@ -306,7 +306,7 @@ class RefundDialog extends StatefulWidget {
 }
 
 class _RefundState extends State<RefundDialog> {
-  final _q = TextEditingController(), _note = TextEditingController();
+  final _q = TextEditingController(), _remark = TextEditingController();
   List<Map<String, dynamic>> _invoices = [];
   Map<String, dynamic>? _invoice;
   List<_RLine> _lines = [];
@@ -327,7 +327,7 @@ class _RefundState extends State<RefundDialog> {
       l.qty.dispose();
     }
     _q.dispose();
-    _note.dispose();
+    _remark.dispose();
     super.dispose();
   }
 
@@ -383,7 +383,7 @@ class _RefundState extends State<RefundDialog> {
         'p_operation_id': _opId,
         'p_payload': {
           'invoice_id': inv['id'], 'kind': 'refund', 'method': _method,
-          'reason': _note.text.trim().isEmpty ? _reason : '$_reason — ${_note.text.trim()}',
+          'reason': _remark.text.trim().isEmpty ? _reason : '$_reason — ${_remark.text.trim()}',
           if (_method == 'cash') 'cash_session_id': widget.ctx.sessionId,
           'lines': lines,
         }
@@ -489,7 +489,7 @@ class _RefundState extends State<RefundDialog> {
                         )),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(flex: 4, child: _input(_note, 'ملاحظة (اختياري)')),
+                  Expanded(flex: 4, child: _input(_remark, 'ملاحظة (اختياري)')),
                 ]),
                 const SizedBox(height: 10),
                 Row(children: [
